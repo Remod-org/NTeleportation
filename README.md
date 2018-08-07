@@ -11,3 +11,4 @@ The relevant config changes are:
 So, /town pay would bypass a cooldown for /town, and /home 1 pay would bypass a cooldown for /home 1.
 I'm sure there is room for improvement.
 
+This should work for /home, /town, and /tpr.
