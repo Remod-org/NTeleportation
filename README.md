@@ -1,5 +1,5 @@
 # NTeleportation
-This is a fork of the NTeleportation at https://oxidemod.org/plugins/n-teleportation.1832/.  It is hoped to be temporary.
+This is an OLD fork of the NTeleportation at https://oxidemod.org/plugins/n-teleportation.1832/.  It is no longer maintained here.
 
 Here, we have added the ability to bypass cooldown timers using the Economics plugin (https://umod.org/plugins/economics) to deduct a preset amount from a user's balance.
 
