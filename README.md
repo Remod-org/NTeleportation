@@ -1,3 +1,6 @@
+# NTeleportation
+Multiple teleportation systems for admins and players
+
 See note below about nteleportation.home permission, which is now required for basic function.  This finally allows control over who may use the basic commands.
 Note: work in progress on Bandit Town autogen.
 ## Configuration
