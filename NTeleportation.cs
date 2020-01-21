@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.70", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.71", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -82,12 +82,6 @@ namespace Oxide.Plugins
         private SortedDictionary<string, Vector3> monPos  = new SortedDictionary<string, Vector3>();
         private SortedDictionary<string, Vector3> monSize = new SortedDictionary<string, Vector3>();
         private SortedDictionary<string, Vector3> cavePos  = new SortedDictionary<string, Vector3>();
-        private int RustNetwork = 0;
-        private int RustSave = 0;
-        private string RustLevel = null;
-        private string RustLevelUrl = null;
-        private int RustWorldSize = 0;
-        private int RustSeed = 0;
         private bool WipeOnUpgradeOrChange = false;
         private bool AutoGenOutpost = false;
         private bool AutoGenBandit = false;
@@ -378,6 +372,10 @@ namespace Oxide.Plugins
                 Version = Version
             }, true);
         }
+
+        private enum checkmode {
+            home, tpr, tpa, town
+        };
 
         private void Init()
         {
@@ -1395,6 +1393,7 @@ namespace Oxide.Plugins
             CheckPerms(configData.Outpost.VIPCooldowns);
             CheckPerms(configData.Bandit.VIPDailyLimits);
             CheckPerms(configData.Bandit.VIPCooldowns);
+
             foreach (var item in configData.Settings.BlockedItems)
             {
                 var definition = ItemManager.FindItemDefinition(item.Key);
@@ -1406,46 +1405,29 @@ namespace Oxide.Plugins
                 ReverseBlockedItems[definition.itemid] = item.Value;
             }
 
-            RustNetwork   = Convert.ToInt32(Protocol.network);
-            RustSave      = Convert.ToInt32(Protocol.save);
-            RustLevel     = ConVar.Server.level;
-            RustLevelUrl  = ConVar.Server.levelurl;
-            RustWorldSize = ConVar.Server.worldsize;
-            RustSeed      = ConVar.Server.seed;
-            Puts($"Game Version: {RustNetwork}.{RustSave}, Url: {RustLevelUrl}, Level: {RustLevel}, size: {RustWorldSize}, seed: {RustSeed}");
-
-            // Detect version, level (map choice), url, worldsize, or seed change.
-            // Any of these should invalidate the saved homes.
-            // Checking network would wipe with EVERY update during the month!
-            if((configData.GameVersion.Save > 0 && configData.GameVersion.Save != RustSave)
-            || (configData.GameVersion.Level != null && configData.GameVersion.Level != RustLevel)
-            || (configData.GameVersion.LevelURL != null && configData.GameVersion.LevelURL != RustLevelUrl)
-            || (configData.GameVersion.WorldSize > 0 && configData.GameVersion.WorldSize != RustWorldSize)
-            || (configData.GameVersion.Seed > 0 && configData.GameVersion.Seed != RustSeed)
-                )
-            {
-                if(configData.Settings.WipeOnUpgradeOrChange == true)
-                {
-                    // Only wipe for the brave using this value set to true
-                    Puts("Rust was upgraded or map changed - clearing homes and town!");
-                    Home.Clear();
-                    changedHome = true;
-                    configData.Town.Location = default(Vector3);
-                }
-                else
-                {
-                    Puts("Rust was upgraded or map changed - homes may be invalid!");
-                }
-            }
-
-            configData.GameVersion.Network   = RustNetwork;
-            configData.GameVersion.Save      = RustSave;
-            configData.GameVersion.Level     = RustLevel;
-            configData.GameVersion.LevelURL  = RustLevelUrl;
-            configData.GameVersion.WorldSize = RustWorldSize;
-            configData.GameVersion.Seed      = RustSeed;
+            configData.GameVersion.Network   = Convert.ToInt32(Protocol.network);
+            configData.GameVersion.Save      = Convert.ToInt32(Protocol.save);
+            configData.GameVersion.Level     = ConVar.Server.level;
+            configData.GameVersion.LevelURL  = ConVar.Server.levelurl;
+            configData.GameVersion.WorldSize = ConVar.Server.worldsize;
+            configData.GameVersion.Seed      = ConVar.Server.seed;
 
             Config.WriteObject(configData, true);
+        }
+
+        void OnNewSave(string strFilename)
+        {
+            if(configData.Settings.WipeOnUpgradeOrChange == true)
+            {
+                Puts("Rust was upgraded or map changed - clearing homes and town!");
+                Home.Clear();
+                changedHome = true;
+                configData.Town.Location = default(Vector3);
+            }
+            else
+            {
+                Puts("Rust was upgraded or map changed - homes may be invalid!");
+            }
         }
 
         void OnServerSave()
@@ -1897,7 +1879,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "SyntaxCommandSetHome");
                 return;
             }
-            var err = CheckPlayer(player, false, CanCraftHome(player), true);
+            var err = CheckPlayer(player, false, CanCraftHome(player), true, "home");
             if (err != null)
             {
                 PrintMsgL(player, $"Home{err}");
@@ -2188,7 +2170,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "SyntaxCommandHome");
                 return;
             }
-            var err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player), true);
+            var err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player), true, "home");
             if (err != null)
             {
                 PrintMsgL(player, err);
@@ -2312,7 +2294,10 @@ namespace Oxide.Plugins
                 OriginPlayer = player,
                 Timer = timer.Once(countdown, () =>
                 {
-                    err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player), true);
+#if DEBUG
+                    Puts("Calling CheckPlayer from cmdChatHomeTP");
+#endif
+                    err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player), true, "home");
                     if (err != null)
                     {
                         PrintMsgL(player, "Interrupted");
@@ -2515,7 +2500,10 @@ namespace Oxide.Plugins
                 return;
 #endif
             }
-            var err = CheckPlayer(player, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(player), true);
+#if DEBUG
+            Puts("Calling CheckPlayer from cmdChatTeleportRequest");
+#endif
+            var err = CheckPlayer(player, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(player), true, "tpr");
             if (err != null)
             {
                 PrintMsgL(player, err);
@@ -2660,7 +2648,10 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "NoPendingRequest");
                 return;
             }
-            var err = CheckPlayer(player, false, CanCraftTPR(player), false);
+#if DEBUG
+            Puts("Calling CheckPlayer from cmdChatTeleportAccept");
+#endif
+            var err = CheckPlayer(player, false, CanCraftTPR(player), false, "tpa");
             if (err != null)
             {
                 PrintMsgL(player, err);
@@ -2679,20 +2670,13 @@ namespace Oxide.Plugins
                 SendReply(player, err);
                 return;
             }
-            if (configData.TPR.BlockTPAOnCeiling)
+            if(configData.TPR.BlockTPAOnCeiling)
             {
-                var position = GetGround(player.transform.position);
-                if (Vector3.Distance(position, player.transform.position) > 2)
+                List<BuildingBlock> entities = GetFloor(player.transform.position);
+                if(entities.Count > 0)
                 {
-                    RaycastHit hitInfo;
-                    BaseEntity entity = null;
-                    if (Physics.SphereCast(player.transform.position, .5f, Vector3.down, out hitInfo, 5, blockLayer))
-                        entity = hitInfo.GetEntity();
-                    if (entity != null && !entity.PrefabName.Contains("foundation"))
-                    {
-                        PrintMsgL(player, "AcceptOnRoof");
-                        return;
-                    }
+                    PrintMsgL(player, "AcceptOnRoof");
+                    return;
                 }
             }
             var countdown = GetLower(originPlayer, configData.TPR.VIPCountdowns, configData.TPR.Countdown);
@@ -2705,7 +2689,10 @@ namespace Oxide.Plugins
                 TargetPlayer = player,
                 Timer = timer.Once(countdown, () =>
                 {
-                    err = CheckPlayer(originPlayer, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(originPlayer)) ?? CheckPlayer(player, false, CanCraftTPR(player), true);
+#if DEBUG
+                    Puts("Calling CheckPlayer from cmdChatTeleportAccept timer loop");
+#endif
+                    err = CheckPlayer(originPlayer, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(originPlayer), true, "tpa") ?? CheckPlayer(player, false, CanCraftTPR(player), true, "tpa");
                     if (err != null)
                     {
                         PrintMsgL(player, "InterruptedTarget", originPlayer.displayName);
@@ -3097,16 +3084,19 @@ namespace Oxide.Plugins
             }
 
             string err = null;
+#if DEBUG
+            Puts("Calling CheckPlayer from cmdChatTown");
+#endif
             switch(command)
             {
                 case "outpost":
-                    err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true);
+                    err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true, "town");
                     break;
                 case "bandit":
-                    err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true);
+                    err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true, "town");
                     break;
                 default:
-                    err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true);
+                    err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true, "town");
                     break;
             }
             if (err != null)
@@ -3211,7 +3201,10 @@ namespace Oxide.Plugins
                         OriginPlayer = player,
                         Timer = timer.Once(countdown, () =>
                         {
-                            err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true);
+#if DEBUG
+                            Puts("Calling CheckPlayer from cmdChatTown outpost timer loop");
+#endif
+                            err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true, "town");
                             if (err != null)
                             {
                                 PrintMsgL(player, "Interrupted");
@@ -3284,7 +3277,10 @@ namespace Oxide.Plugins
                         OriginPlayer = player,
                         Timer = timer.Once(countdown, () =>
                         {
-                            err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true);
+#if DEBUG
+                            Puts("Calling CheckPlayer from cmdChatTown bandit timer loop");
+#endif
+                            err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true, "town");
                             if (err != null)
                             {
                                 PrintMsgL(player, "Interrupted");
@@ -3357,7 +3353,10 @@ namespace Oxide.Plugins
                         OriginPlayer = player,
                         Timer = timer.Once(countdown, () =>
                         {
-                            err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true);
+#if DEBUG
+                            Puts("Calling CheckPlayer from cmdChatTown town timer loop");
+#endif
+                            err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true, "town");
                             if (err != null)
                             {
                                 PrintMsgL(player, "Interrupted");
@@ -3590,27 +3589,25 @@ namespace Oxide.Plugins
         {
             SaveLocation(player);
             teleporting.Add(player.userID);
-            if (player.net?.connection != null)
+            if(player.net?.connection != null)
                 player.ClientRPCPlayer(null, player, "StartLoading");
+
             StartSleeping(player);
             player.SetParent(null, true, true);
             player.MovePosition(position);
-            if (player.net?.connection != null)
+
+            if(player.net?.connection != null)
                 player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
-            if (player.net?.connection != null)
                 player.SetPlayerFlag(BasePlayer.PlayerFlags.ReceivingSnapshot, true);
+
             player.UpdateNetworkGroup();
             //player.UpdatePlayerCollider(true, false);
             player.SendNetworkUpdateImmediate(false);
-            if (player.net?.connection == null) return;
+            if(player.net?.connection == null) return;
+
             //TODO temporary for potential rust bug
-            try
-            {
-                player.ClearEntityQueue(null);
-            }
-            catch
-            {
-            }
+            try { player.ClearEntityQueue(null); } catch {}
+
             player.SendFullSnapshot();
         }
 
@@ -3751,9 +3748,14 @@ namespace Oxide.Plugins
                 float realdistance = monSize[monname].z;
                 monvector.y = pos.y;
                 float dist = Vector3.Distance(pos, monvector);
-
+#if DEBUG
+                Puts($"Checking {monname} dist: {dist.ToString()}, realdistance: {realdistance.ToString()}");
+#endif
                 if(dist < realdistance)
                 {
+#if DEBUG
+                    Puts($"Player in range of {monname}");
+#endif
                     return monname;
                 }
             }
@@ -3805,7 +3807,7 @@ namespace Oxide.Plugins
             return null;
         }
 
-        private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false, bool origin = true)
+        private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false, bool origin = true, string mode = "home")
         {
             var onship = player.GetComponentInParent<CargoShip>();
             var onballoon = player.GetComponentInParent<HotAirBalloon>();
@@ -3820,7 +3822,23 @@ namespace Oxide.Plugins
                     return _("TooCloseToMon", player, monname);
                 }
             }
-            if(configData.Home.AllowCave == false)
+            bool allowcave = true;
+            Puts($"CheckPlayer(): called mode is {mode}");
+            switch(mode)
+            {
+                case "home":
+                    allowcave = configData.Home.AllowCave;
+                    break;
+                case "tpa":
+                case "tpr":
+                case "town":
+                default:
+#if DEBUG
+                    Puts("Skipping cave check...");
+#endif
+                    break;
+            }
+            if(allowcave == false)
             {
 #if DEBUG
                 Puts("Checking cave distance...");
@@ -4144,6 +4162,32 @@ namespace Oxide.Plugins
             return entities;
         }
 
+        private List<BuildingBlock> GetFloor(Vector3 position)
+        {
+            RaycastHit hitinfo;
+            var entities = new List<BuildingBlock>();
+
+            if(Physics.Raycast(position, Vector3.down, out hitinfo, 0.11f, blockLayer))
+            {
+                var entity = hitinfo.GetEntity();
+                if(entity.PrefabName.Contains("floor"))
+                {
+#if DEBUG
+                    Puts($"GetFloor() found {entity.PrefabName} at {entity.transform.position}");
+#endif
+                    entities.Add(entity as BuildingBlock);
+                }
+            }
+            else
+            {
+#if DEBUG
+                Puts("GetFloor() none found.");
+#endif
+            }
+
+            return entities;
+        }
+
         private List<BuildingBlock> GetFoundationOrFloor(Vector3 position)
         {
             RaycastHit hitinfo;
@@ -4183,25 +4227,40 @@ namespace Oxide.Plugins
             sourcePos.y += .5f;
             RaycastHit hitinfo;
             var done = false;
-            if (Physics.SphereCast(sourcePos, .1f, Vector3.down, out hitinfo, 250, groundLayer))
+
+#if DEBUG
+            Puts("GetGround(): Looking for iceberg or cave");
+#endif
+            //if (Physics.SphereCast(sourcePos, .1f, Vector3.down, out hitinfo, 250, groundLayer))
+            if(Physics.Raycast(sourcePos, Vector3.down, out hitinfo, 250f, groundLayer))
             {
-                if ((configData.Home.AllowIceberg && hitinfo.collider.name.Contains("iceberg")) || (configData.Home.AllowCave && hitinfo.collider.name.Contains("cave_")))
+                if((configData.Home.AllowIceberg && hitinfo.collider.name.Contains("iceberg")) || (configData.Home.AllowCave && hitinfo.collider.name.Contains("cave_")))
                 {
+#if DEBUG
+                    Puts("GetGround():   found iceberg or cave");
+#endif
                     sourcePos.y = hitinfo.point.y;
                     done = true;
                 }
                 else
                 {
                     var mesh = hitinfo.collider.GetComponentInChildren<MeshCollider>();
-                    if (mesh != null && mesh.sharedMesh.name.Contains("rock_"))
+                    if(mesh != null && mesh.sharedMesh.name.Contains("rock_"))
                     {
                         sourcePos.y = hitinfo.point.y;
                         done = true;
                     }
                 }
             }
-            if (!configData.Home.AllowCave && Physics.SphereCast(sourcePos, .1f, Vector3.up, out hitinfo, 250, groundLayer) && hitinfo.collider.name.Contains("rock_"))
+#if DEBUG
+            Puts("GetGround(): Looking for cave or rock");
+#endif
+            //if(!configData.Home.AllowCave && Physics.SphereCast(sourcePos, .1f, Vector3.up, out hitinfo, 250, groundLayer) && hitinfo.collider.name.Contains("rock_"))
+            if(!configData.Home.AllowCave && Physics.Raycast(sourcePos, Vector3.up, out hitinfo, 250f, groundLayer) && hitinfo.collider.name.Contains("rock_"))
             {
+#if DEBUG
+                Puts("GetGround():   found cave or rock");
+#endif
                 sourcePos.y = newPos.y - 10;
                 done = true;
             }
