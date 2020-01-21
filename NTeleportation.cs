@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.67", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.68", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -3508,7 +3508,6 @@ namespace Oxide.Plugins
                 }
 
                 ulong hitEntityOwnerID = block.OwnerID != 0 ? block.OwnerID : 0;
-                Puts($"OwnerID == {hitEntityOwnerID.ToString()}");
                 foreach(var privs in building.buildingPrivileges)
                 {
                     if(CupboardAuthCheck(privs, hitEntityOwnerID))
