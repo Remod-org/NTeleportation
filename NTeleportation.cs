@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.68", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.69", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -112,6 +112,7 @@ namespace Oxide.Plugins
             public bool InterruptTPOnMonument { get; set; }
             public bool InterruptTPOnMounted { get; set; }
             public bool InterruptTPOnSwimming { get; set; }
+            public bool InterruptAboveWater{ get; set; }
             public float CaveDistanceSmall { get; set; }
             public float CaveDistanceMedium { get; set; }
             public float CaveDistanceLarge { get; set; }
@@ -267,6 +268,7 @@ namespace Oxide.Plugins
                     InterruptTPOnMonument = false,
                     InterruptTPOnMounted = true,
                     InterruptTPOnSwimming = true,
+                    InterruptAboveWater = false,
                     CaveDistanceSmall = 40f,
                     CaveDistanceMedium = 60f,
                     CaveDistanceLarge = 100f,
@@ -427,6 +429,7 @@ namespace Oxide.Plugins
                 {"TPTooHot", "You're too hot to teleport!"},
                 {"TPMounted", "You can't teleport while seated!"},
                 {"TPBuildingBlocked", "You can't teleport while in a building blocked zone!"},
+                {"TPAboveWater", "You can't teleport while above water!"},
                 {"TPTargetBuildingBlocked", "You can't teleport in a building blocked zone!"},
                 {"TPTargetInsideBlock", "You can't teleport into a foundation!"},
                 {"TPSwimming", "You can't teleport while swimming!"},
@@ -825,7 +828,7 @@ namespace Oxide.Plugins
                 {"TPSwimming", "Ты не можешь телепортироваться во время плавания!"},
                 {"TPCargoShip", "Ты не можешь телепортироваться с грузового корабля!"},
                 {"TPOilRig", "Ты не можешь телепортироваться с нефтяная вышка!"},
-                {"TPExcavator", "Ты не можешь телепортироваться с экскаватор!"}, 
+                {"TPExcavator", "Ты не можешь телепортироваться с экскаватор!"},
                 {"TPHotAirBalloon", "Вы не можете телепортироваться на воздушный шар или с него!"},
                 {"TPLift", "Вы не можете телепортироваться в лифте или ковшовом подъемнике!"},
                 {"TPBucketLift", "Вы не можете телепортироваться, находясь в ковшовом подъемнике!"},
@@ -1169,6 +1172,10 @@ namespace Oxide.Plugins
                 {
                     configData.Settings.InterruptTPOnMounted = true;
                     configData.Settings.InterruptTPOnSwimming = true;
+                }
+                if(configData.Version < new VersionNumber(1, 0, 69))
+                {
+                    configData.Settings.InterruptAboveWater = false;
                 }
                 if (configData.Settings.MaximumTemp < 1)
                 {
@@ -3282,6 +3289,28 @@ namespace Oxide.Plugins
             return configData.TPR.AllowCraft || permission.UserHasPermission(player.UserIDString, PermCraftTpR);
         }
 
+        public bool AboveWater(BasePlayer player)
+        {
+            var pos = player.transform.position;
+#if DEBUG
+            Puts($"Player position: {pos.ToString()}.  Checking for water...");
+#endif
+            if((TerrainMeta.HeightMap.GetHeight(pos) - TerrainMeta.WaterMap.GetHeight(pos)) >= 0)
+            {
+#if DEBUG
+                Puts("Player not above water.");
+#endif
+                return false;
+            }
+            else
+            {
+#if DEBUG
+                Puts("Player is above water!");
+#endif
+                return true;
+            }
+        }
+
         private string NearMonument(BasePlayer player)
         {
             var pos = player.transform.position;
@@ -3391,6 +3420,9 @@ namespace Oxide.Plugins
                 return "TPTooHot";
             }
 
+            if(configData.Settings.InterruptAboveWater)
+                if(AboveWater(player))
+                    return "TPAboveWater";
             if(!build && !player.CanBuild())
                 return "TPBuildingBlocked";
             if(player.IsSwimming() && configData.Settings.InterruptTPOnSwimming == true)
