@@ -19,13 +19,15 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.47", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.48", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
         private static readonly Vector3 Down = down;
         private const string NewLine = "\n";
         private const string ConfigDefaultPermVip = "nteleportation.vip";
+        private const string PermHome = "nteleportation.home";
+        private const string PermTpR = "nteleportation.tpr";
         private const string PermDeleteHome = "nteleportation.deletehome";
         private const string PermHomeHomes = "nteleportation.homehomes";
         private const string PermImportHomes = "nteleportation.importhomes";
@@ -106,6 +108,7 @@ namespace Oxide.Plugins
         class AdminSettingsData
         {
             public bool AnnounceTeleportToTarget { get; set; }
+            public bool UseableByAdmins { get; set; }
             public bool UseableByModerators { get; set; }
             public int LocationRadius { get; set; }
             public int TeleportNearDefaultDistance { get; set; }
@@ -234,6 +237,7 @@ namespace Oxide.Plugins
                 Admin = new AdminSettingsData
                 {
                     AnnounceTeleportToTarget = false,
+                    UseableByAdmins = true,
                     UseableByModerators = true,
                     LocationRadius = 25,
                     TeleportNearDefaultDistance = 30
@@ -731,11 +735,13 @@ namespace Oxide.Plugins
             cmd.AddConsoleCommand("teleport.toplayer", this, ccmdTeleport);
             cmd.AddConsoleCommand("teleport.topos", this, ccmdTeleport);
             permission.RegisterPermission(PermDeleteHome, this);
+            permission.RegisterPermission(PermHome, this);
             permission.RegisterPermission(PermHomeHomes, this);
             permission.RegisterPermission(PermImportHomes, this);
             permission.RegisterPermission(PermRadiusHome, this);
             permission.RegisterPermission(PermTp, this);
             permission.RegisterPermission(PermTpB, this);
+            permission.RegisterPermission(PermTpR, this);
             permission.RegisterPermission(PermTpConsole, this);
             permission.RegisterPermission(PermTpHome, this);
             permission.RegisterPermission(PermTpTown, this);
@@ -827,6 +833,7 @@ namespace Oxide.Plugins
             NextTick(() =>
             {
                 if (hitinfo.damageTypes.Total() <= 0) return;
+                if (configData.Settings.InterruptTPOnHurt == false) return;
                 PrintMsgL(teleportTimer.OriginPlayer, "Interrupted");
                 if (teleportTimer.TargetPlayer != null)
                     PrintMsgL(teleportTimer.TargetPlayer, "InterruptedTarget", teleportTimer.OriginPlayer.displayName);
@@ -1180,6 +1187,7 @@ namespace Oxide.Plugins
         [ChatCommand("sethome")]
         private void cmdChatSetHome(BasePlayer player, string command, string[] args)
         {
+            if (!IsAllowed(player, PermHome)) return;
             if (!configData.Settings.HomesEnabled) return;
             if (args.Length != 1)
             {
@@ -1257,6 +1265,7 @@ namespace Oxide.Plugins
         [ChatCommand("removehome")]
         private void cmdChatRemoveHome(BasePlayer player, string command, string[] args)
         {
+            if (!IsAllowed(player, PermHome)) return;
             if (!configData.Settings.HomesEnabled) return;
             if (args.Length != 1)
             {
@@ -1281,6 +1290,7 @@ namespace Oxide.Plugins
         [ChatCommand("home")]
         private void cmdChatHome(BasePlayer player, string command, string[] args)
         {
+            if (!IsAllowed(player, PermHome)) return;
             if (!configData.Settings.HomesEnabled) return;
             if (args.Length == 0)
             {
@@ -1459,6 +1469,7 @@ namespace Oxide.Plugins
 
         private void cmdChatHomeTP(BasePlayer player, string command, string[] args)
         {
+            if (!IsAllowed(player, PermHome)) return;
             if (!configData.Settings.HomesEnabled) return;
             if (args.Length < 1)
             {
@@ -1737,6 +1748,7 @@ namespace Oxide.Plugins
         [ChatCommand("tpr")]
         private void cmdChatTeleportRequest(BasePlayer player, string command, string[] args)
         {
+            if (!IsAllowedMsg(player, PermTpR)) return;
             if (!configData.Settings.TPREnabled) return;
             if (args.Length != 1)
             {
@@ -3012,8 +3024,18 @@ namespace Oxide.Plugins
         private bool IsAllowed(BasePlayer player, string perm = null)
         {
             var playerAuthLevel = player.net?.connection?.authLevel;
-            var requiredAuthLevel = configData.Admin.UseableByModerators ? 1 : 2;
+
+            var requiredAuthLevel = 3;
+            if(configData.Admin.UseableByModerators)
+            {
+                requiredAuthLevel = 1;
+            }
+            else if(configData.Admin.UseableByAdmins)
+            {
+                requiredAuthLevel = 2;
+            }
             if (playerAuthLevel >= requiredAuthLevel) return true;
+
             return !string.IsNullOrEmpty(perm) && permission.UserHasPermission(player.UserIDString, perm);
         }
 
