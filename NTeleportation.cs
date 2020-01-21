@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using Facepunch;
@@ -17,7 +18,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.41", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.42", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -62,7 +63,8 @@ namespace Oxide.Plugins
         private readonly Dictionary<ulong, BasePlayer> PlayersRequests = new Dictionary<ulong, BasePlayer>();
         private readonly Dictionary<int, string> ReverseBlockedItems = new Dictionary<int, string>();
         private readonly HashSet<ulong> teleporting = new HashSet<ulong>();
-        private SortedDictionary<string, Vector3> monPos = new SortedDictionary<string, Vector3>();
+        private SortedDictionary<string, Vector3> monPos  = new SortedDictionary<string, Vector3>();
+        private SortedDictionary<string, Vector3> monSize = new SortedDictionary<string, Vector3>();
 
         [PluginReference]
         private Plugin Clans, Economics, ServerRewards, Friends, RustIO;
@@ -363,7 +365,7 @@ namespace Oxide.Plugins
                 {"TPSafeZone", "You can't teleport from a safezone!"},
                 {"TPCrafting", "You can't teleport while crafting!"},
                 {"TPBlockedItem", "You can't teleport while carrying: {0}!"},
-                {"TooCloseTo", "You can't teleport so close to the middle of the {0}!"},
+                {"TooCloseToMon", "You can't teleport so close to the {0}!"},
                 {"TownTP", "You teleported to town!"},
                 {"TownTPNotSet", "Town is currently not set!"},
                 {"TownTPDisabled", "Town is currently not enabled!"},
@@ -875,7 +877,7 @@ namespace Oxide.Plugins
             PrintMsgL(player, "AdminTPBackSave");
         }
 
-        // From MonumentFinder.cs by PsychoTea
+        // Modified from MonumentFinder.cs by PsychoTea
         void FindMonuments()
         {
             foreach (MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
@@ -884,8 +886,14 @@ namespace Oxide.Plugins
                 string name = Regex.Match(monument.name, @"\w{6}\/(.+\/)(.+)\.(.+)").Groups[2].Value.Replace("_", " ").Replace(" 1", "").Titleize();
                 if (monPos.ContainsKey(name)) continue;
                 monPos.Add(name, monument.transform.position);
+
+                var width = monument.Bounds.extents;
+                //var wi = width.ToString();
+                //Puts($"Extent of {name} is {wi}");
+                monSize.Add(name, width);
             }
             monPos.OrderBy(x => x.Key);
+            monSize.OrderBy(x => x.Key);
         }
 
         [ChatCommand("tp")]
@@ -2585,7 +2593,7 @@ namespace Oxide.Plugins
             return configData.TPR.AllowCraft || permission.UserHasPermission(player.UserIDString, PermCraftTpR);
         }
 
-        private string NearMonument(BasePlayer player, float distance = 10f)
+        private string NearMonument(BasePlayer player)
         {
             var pos = player.transform.position;
             var poss = pos.ToString();
@@ -2595,14 +2603,15 @@ namespace Oxide.Plugins
             {
                 var monname = entry.Key;
                 var monvector = entry.Value;
+                float realdistance = monSize[monname].z;
                 monvector.y = pos.y;
-                var mpos = monvector.ToString();
                 float dist = Vector3.Distance(pos, monvector);
-                float realdistance = (float)System.Math.Pow(distance, 2);
-                var dists = dist.ToString();
-                var rdists = realdistance.ToString();
 
+                //var mpos = monvector.ToString();
+                //var dists = dist.ToString();
+                //var rdists = realdistance.ToString();
                 //Puts($"Checking for monument {monname} at {mpos}, distance {dists} compared to {rdists}...");
+
                 if(dist < realdistance)
                 {
                     return monname;
@@ -2620,9 +2629,9 @@ namespace Oxide.Plugins
 
             if(configData.Settings.InterruptTPOnMonument == true)
             {
-                string monname = NearMonument(player, 7f);
+                string monname = NearMonument(player);
                 if(monname != null)
-                    return _("TooCloseTo", player, monname);
+                    return _("TooCloseToMon", player, monname);
             }
             if(player.isMounted)
                 return "TPMounted";
