@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.45", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.46", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -92,11 +92,11 @@ namespace Oxide.Plugins
             public bool InterruptTPOnHurt { get; set; }
             public bool InterruptTPOnSafe { get; set; }
             public bool InterruptTPOnMonument { get; set; }
+            public float DefaultMonumentSize { get; set; }
             public Dictionary<string, string> BlockedItems { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             public string BypassCMD { get; set; }
             public bool UseEconomics { get; set; }
             public bool UseServerRewards { get; set; }
-            public bool WipeOnUpgrade { get; set; }
         }
 
         class AdminSettingsData
@@ -218,10 +218,10 @@ namespace Oxide.Plugins
                     InterruptTPOnHurt = true,
                     InterruptTPOnSafe = true,
                     InterruptTPOnMonument = false,
+                    DefaultMonumentSize = 50f,
                     BypassCMD = "pay",
                     UseEconomics = false,
-                    UseServerRewards = false,
-                    WipeOnUpgrade = false
+                    UseServerRewards = false
                 },
                 Admin = new AdminSettingsData
                 {
@@ -661,6 +661,10 @@ namespace Oxide.Plugins
                 {"LogTeleportPlayer", "{0} teleported {1} to {2}."},
                 {"LogTeleportBack", "{0} teleported back to previous location."}
             }, this);
+        }
+
+        private void Loaded()
+        {
             Config.Settings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
             Config.Settings.Converters = new JsonConverter[] { new UnityVector3Converter() };
             try
@@ -697,6 +701,10 @@ namespace Oxide.Plugins
                 {
                     configData.Home.UsableIntoBuildingBlocked = true;
                     configData.TPR.UsableIntoBuildingBlocked = true;
+                }
+                if (configData.Settings.DefaultMonumentSize < 1)
+                {
+                    configData.Settings.DefaultMonumentSize = 50f;
                 }
                 configData.Version = Version;
                 Config.WriteObject(configData, true);
@@ -912,6 +920,10 @@ namespace Oxide.Plugins
                 }
                 else
                 {
+                    if(width.z < 1)
+                    {
+                        width.z = configData.Settings.DefaultMonumentSize;
+                    }
                     monPos.Add(name, monument.transform.position);
                     monSize.Add(name, width);
                 }
@@ -2750,8 +2762,6 @@ namespace Oxide.Plugins
                 }
             }
             Pool.FreeList(ref colliders);
-            var builds = build.ToString();
-            var cupss = cups.ToString();
             return cups && !build ? "TPTargetBuildingBlocked" : null;
         }
 
@@ -2796,6 +2806,7 @@ namespace Oxide.Plugins
             }
             return false;
         }
+
         private string CheckInsideBlock(Vector3 targetLocation)
         {
             List<BuildingBlock> blocks = Pool.GetList<BuildingBlock>();
