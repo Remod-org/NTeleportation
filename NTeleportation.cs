@@ -1,4 +1,4 @@
-#define DEBUG
+//#define DEBUG
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.65", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.66", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -107,6 +107,7 @@ namespace Oxide.Plugins
             public bool InterruptTPOnBalloon { get; set; }
             public bool InterruptTPOnCargo { get; set; }
             public bool InterruptTPOnRig { get; set; }
+            public bool InterruptTPOnExcavator { get; set; }
             public bool InterruptTPOnLift { get; set; }
             public bool InterruptTPOnMonument { get; set; }
             public bool InterruptTPOnMounted { get; set; }
@@ -261,6 +262,7 @@ namespace Oxide.Plugins
                     InterruptTPOnBalloon = true,
                     InterruptTPOnCargo = true,
                     InterruptTPOnRig = false,
+                    InterruptTPOnExcavator = false,
                     InterruptTPOnLift = true,
                     InterruptTPOnMonument = false,
                     InterruptTPOnMounted = true,
@@ -430,6 +432,7 @@ namespace Oxide.Plugins
                 {"TPSwimming", "You can't teleport while swimming!"},
                 {"TPCargoShip", "You can't teleport from the cargo ship!"},
                 {"TPOilRig", "You can't teleport from the oil rig!"},
+                {"TPExcavator", "You can't teleport from the excavator!"},
                 {"TPHotAirBalloon", "You can't teleport to or from a hot air balloon!"},
                 {"TPLift", "You can't teleport while in an elevator or bucket lift!"},
                 {"TPBucketLift", "You can't teleport while in a bucket lift!"},
@@ -822,6 +825,7 @@ namespace Oxide.Plugins
                 {"TPSwimming", "Ты не можешь телепортироваться во время плавания!"},
                 {"TPCargoShip", "Ты не можешь телепортироваться с грузового корабля!"},
                 {"TPOilRig", "Ты не можешь телепортироваться с нефтяная вышка!"},
+                {"TPExcavator", "Ты не можешь телепортироваться с экскаватор!"}, 
                 {"TPHotAirBalloon", "Вы не можете телепортироваться на воздушный шар или с него!"},
                 {"TPLift", "Вы не можете телепортироваться в лифте или ковшовом подъемнике!"},
                 {"TPBucketLift", "Вы не можете телепортироваться, находясь в ковшовом подъемнике!"},
@@ -3346,7 +3350,6 @@ namespace Oxide.Plugins
         private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false, bool origin = true)
         {
             var onship = player.GetComponentInParent<CargoShip>();
-            //var onrig  = player.GetComponentInParent<OilrigAI>();
             var onballoon = player.GetComponentInParent<HotAirBalloon>();
             var inlift = player.GetComponentInParent<Lift>();
             var pos = player.transform.position;
@@ -3394,6 +3397,8 @@ namespace Oxide.Plugins
             // This will have to do until we have a proper parent name for this
             if(monname != null && monname.Contains("Oilrig") && configData.Settings.InterruptTPOnRig == true)
                 return "TPOilRig";
+            if(monname != null && monname.Contains("Excavator") && configData.Settings.InterruptTPOnExcavator == true)
+                return "TPExcavator";
             if(onship && configData.Settings.InterruptTPOnCargo == true)
                 return "TPCargoShip";
             if(onballoon && configData.Settings.InterruptTPOnBalloon == true)
@@ -3409,67 +3414,119 @@ namespace Oxide.Plugins
             return null;
         }
 
-        private string CheckTargetLocation(BasePlayer player, Vector3 targetLocation, bool build, bool owner)
+        private string CheckTargetLocation(BasePlayer player, Vector3 targetLocation, bool ubb, bool obb)
         {
-            // build == UsableIntoBuildingBlocked
-            // owner == CupOwnerAllowOnBuildingBlocked (applies to block if no cupboard)
+            // ubb == UsableIntoBuildingBlocked
+            // obb == CupOwnerAllowOnBuildingBlocked
             var colliders = Pool.GetList<Collider>();
             Vis.Colliders(targetLocation, 0.1f, colliders, buildingLayer);
-            var cups = false;
+            bool blocked = false;
+            bool foundblock = false;
+            int i = 0;
+
+            // First, check that there is a building block at the target
             foreach(var collider in colliders)
             {
                 var block = collider.GetComponentInParent<BuildingBlock>();
-                if (block == null)
+                i++;
+                if(block != null)
                 {
-                    continue;
-                }
-                cups = true;
-
-                if(CheckCupboardBlock(block, player, owner))
-                {
-                    cups = false;
-                    continue;
-                }
-                if (owner && player.userID == block.OwnerID)
-                {
-                    cups = false;
-                    continue;
+                    foundblock = true;
+#if DEBUG
+                    Puts($"Found a block {i.ToString()}");
+#endif
+                    if(foundblock)
+                    {
+                        if(CheckCupboardBlock(block, player, obb))
+                        {
+                            blocked = false;
+#if DEBUG
+                            Puts("Cupboard either owned or there is no cupboard");
+#endif
+                        }
+                        else if(ubb && (player.userID != block.OwnerID))
+                        {
+                            blocked = false;
+#if DEBUG
+                            Puts("Player does not own block, but UsableIntoBuildingBlocked=true");
+#endif
+                        }
+                        else if(player.userID == block.OwnerID)
+                        {
+#if DEBUG
+                            Puts("Player owns block");
+#endif
+                            if(ubb)
+                            {
+                                blocked = false;
+#if DEBUG
+                                Puts("Player not blocked because UsableIntoBuildingBlocked=true");
+#endif
+                            }
+                            else
+                            {
+                                blocked = true;
+#if DEBUG
+                                Puts("Player owns block but blocked by UsableIntoBuildingBlocked=false");
+#endif
+                            }
+                        }
+                        else
+                        {
+                            blocked = true;
+#if DEBUG
+                            Puts("Player blocked");
+#endif
+                        }
+                    }
                 }
             }
             Pool.FreeList(ref colliders);
-            return cups && !build ? "TPTargetBuildingBlocked" : null;
+
+            return blocked ? "TPTargetBuildingBlocked" : null;
         }
 
         // Check that a building block is owned by/attached to a cupboard, allow tp if not blocked unless allowed by config
-        private bool CheckCupboardBlock(BuildingBlock block, BasePlayer player, bool owner)
+        private bool CheckCupboardBlock(BuildingBlock block, BasePlayer player, bool obb)
         {
-            // owner == CupOwnerAllowOnBuildingBlocked
+            // obb == CupOwnerAllowOnBuildingBlocked
             BuildingManager.Building building = block.GetBuilding();
             if(building != null)
             {
                 // cupboard overlap.  Check privs.
                 if(building.buildingPrivileges == null)
                 {
+#if DEBUG
+                    Puts("Player has no privileges");
+#endif
                     return false;
                 }
 
                 ulong hitEntityOwnerID = block.OwnerID != 0 ? block.OwnerID : 0;
-                if (owner && player.userID == hitEntityOwnerID)
-                {
-                    // player set the cupboard and is allowed in by config
-                    return true;
-                }
-
                 foreach(var privs in building.buildingPrivileges)
                 {
                     if(CupboardAuthCheck(privs, hitEntityOwnerID))
                     {
                         // player is authorized to the cupboard
+#if DEBUG
+                        Puts("Player owns cupboard with auth");
+#endif
+                        return true;
+                    }
+                    else if(obb && player.userID == hitEntityOwnerID)
+                    {
+                        // player set the cupboard and is allowed in by config
+#if DEBUG
+                        Puts("Player owns cupboard with no auth, but allowed by CupOwnerAllowOnBuildingBlocked=true");
+#endif
                         return true;
                     }
                 }
             }
-            return false; // MAY NEED TO BE TRUE I.E. IF NO CUPBOARD AT ALL
+#if DEBUG
+            Puts("No cupboard found - we cannot tell the status of this block");
+#endif
+            return true;
         }
 
         private bool CupboardAuthCheck(BuildingPrivlidge priv, ulong hitEntityOwnerID)
