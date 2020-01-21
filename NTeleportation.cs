@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.81", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.82", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -3203,7 +3203,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "BanditTPNotSet");
                 return;
             }
-            else if(configData.Town.Location == default(Vector3))
+            else if(configData.Town.Location == default(Vector3) && command == null)
             {
                 PrintMsgL(player, "TownTPNotSet");
                 return;
