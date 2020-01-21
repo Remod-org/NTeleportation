@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.84", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.85", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1692,17 +1692,24 @@ namespace Oxide.Plugins
         bool setextra = false;
         void FindMonuments()
         {
-            foreach (MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
+            Vector3 extents = Vector3.zero;
+            float realWidth = 0f;
+            string name = null;
+            foreach(MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
             {
                 if(monument.name.Contains("power_sub")) continue;
-                string name = null;
+                realWidth = 0f;
+                name = null;
+
                 if(monument.name == "OilrigAI")
                 {
                     name = "Small Oilrig";
+                    realWidth = 100f;
                 }
                 else if(monument.name == "OilrigAI2")
                 {
                     name = "Large Oilrig";
+                    realWidth = 200f;
                 }
                 else
                 {
@@ -1710,10 +1717,19 @@ namespace Oxide.Plugins
                 }
                 if(monPos.ContainsKey(name)) continue;
                 if(cavePos.ContainsKey(name)) name = name + RandomString();
+
+                extents = monument.Bounds.extents;
 #if DEBUG
-                Puts($"Found {name}");
+                Puts($"Found {name}, extents {extents.ToString()}");
 #endif
-                var width = monument.Bounds.extents;
+
+                if(realWidth > 0f)
+                {
+                    extents.z = realWidth;
+#if DEBUG
+                    Puts($"  corrected to {extents.ToString()}");
+#endif
+                }
 
                 if(monument.name.Contains("cave"))
                 {
@@ -1757,14 +1773,14 @@ namespace Oxide.Plugins
                 }
                 else
                 {
-                    if(width.z < 1)
+                    if(extents.z < 1)
                     {
-                        width.z = configData.Settings.DefaultMonumentSize;
+                        extents.z = configData.Settings.DefaultMonumentSize;
                     }
                     monPos.Add(name, monument.transform.position);
-                    monSize.Add(name, width);
+                    monSize.Add(name, extents);
 #if DEBUG
-                    Puts($"Adding Monument: {name}, pos: {monument.transform.position.ToString()}, size: {width.ToString()}");
+                    Puts($"Adding Monument: {name}, pos: {monument.transform.position.ToString()}, size: {extents.ToString()}");
 #endif
                 }
             }
@@ -2037,7 +2053,7 @@ namespace Oxide.Plugins
             var err = CheckPlayer(player, false, CanCraftHome(player), true, "home");
             if (err != null)
             {
-                PrintMsgL(player, $"Home{err}");
+                PrintMsgL(player, err);
                 return;
             }
             if (!player.CanBuild())
