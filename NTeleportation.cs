@@ -17,7 +17,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.38", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.39", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -346,7 +346,7 @@ namespace Oxide.Plugins
                 {"TPRAmount", "You have {0} teleport requests left today!"},
                 {"TPRTarget", "Your target is currently not available!"},
                 {"TPDead", "You can't teleport while being dead!"},
-                {"TPWounded", "You can't teleport while being wounded!"},
+                {"TPWounded", "You can't teleport while wounded!"},
                 {"TPMounted", "You can't teleport while seated!"},
                 {"TPBuildingBlocked", "You can't teleport while in a building blocked zone!"},
                 {"TPTargetBuildingBlocked", "You can't teleport in a building blocked zone!"},
@@ -1108,7 +1108,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "SyntaxCommandSetHome");
                 return;
             }
-            var err = CheckPlayer(player, false, CanCraftHome(player));
+            var err = CheckPlayer(player, false, CanCraftHome(player), true);
             if (err != null)
             {
                 PrintMsgL(player, $"Home{err}");
@@ -1387,7 +1387,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "SyntaxCommandHome");
                 return;
             }
-            var err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player));
+            var err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player), true);
             if (err != null)
             {
                 PrintMsgL(player, err);
@@ -1510,7 +1510,7 @@ namespace Oxide.Plugins
                 OriginPlayer = player,
                 Timer = timer.Once(countdown, () =>
                 {
-                    err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player));
+                    err = CheckPlayer(player, configData.Home.UsableOutOfBuildingBlocked, CanCraftHome(player), true);
                     if (err != null)
                     {
                         PrintMsgL(player, "Interrupted");
@@ -1682,7 +1682,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "CantTeleportToSelf");
                 return;
             }
-            var err = CheckPlayer(player, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(player));
+            var err = CheckPlayer(player, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(player), true);
             if (err != null)
             {
                 PrintMsgL(player, err);
@@ -1835,7 +1835,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "NoPendingRequest");
                 return;
             }
-            var err = CheckPlayer(player, false, CanCraftTPR(player));
+            var err = CheckPlayer(player, false, CanCraftTPR(player), false);
             if (err != null)
             {
                 PrintMsgL(player, err);
@@ -1880,7 +1880,7 @@ namespace Oxide.Plugins
                 TargetPlayer = player,
                 Timer = timer.Once(countdown, () =>
                 {
-                    err = CheckPlayer(originPlayer, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(originPlayer)) ?? CheckPlayer(player, false, CanCraftTPR(player));
+                    err = CheckPlayer(originPlayer, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(originPlayer)) ?? CheckPlayer(player, false, CanCraftTPR(player), true);
                     if (err != null)
                     {
                         PrintMsgL(player, "InterruptedTarget", originPlayer.displayName);
@@ -2156,7 +2156,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "TownTPNotSet");
                 return;
             }
-            var err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player));
+            var err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true);
             if (err != null)
             {
                 PrintMsgL(player, err);
@@ -2254,7 +2254,7 @@ namespace Oxide.Plugins
                 OriginPlayer = player,
                 Timer = timer.Once(countdown, () =>
                 {
-                    err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player));
+                    err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true);
                     if (err != null)
                     {
                         PrintMsgL(player, "Interrupted");
@@ -2563,7 +2563,7 @@ namespace Oxide.Plugins
             return configData.TPR.AllowCraft || permission.UserHasPermission(player.UserIDString, PermCraftTpR);
         }
 
-        private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false)
+        private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false, bool origin = true)
         {
             var onship = player.GetComponentInParent<CargoShip>();
             var onballoon = player.GetComponentInParent<HotAirBalloon>();
@@ -2574,7 +2574,8 @@ namespace Oxide.Plugins
                 return "TPMounted";
             if(!player.IsAlive())
                 return "TPDead";
-            if(player.IsWounded())
+			// Block if hurt if the config is enabled.  If the player is not the target in a tpa condition, allow.
+            if((player.IsWounded() && origin) && configData.Settings.InterruptTPOnHurt == true)
                 return "TPWounded";
             if(!build && !player.CanBuild())
                 return "TPBuildingBlocked";
