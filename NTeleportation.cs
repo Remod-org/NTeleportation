@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.66", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.67", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1298,11 +1298,12 @@ namespace Oxide.Plugins
             RustSeed      = ConVar.Server.seed;
             Puts($"Game Version: {RustNetwork}.{RustSave}, Url: {RustLevelUrl}, Level: {RustLevel}, size: {RustWorldSize}, seed: {RustSeed}");
 
-            // Detect version, level (map choice), worldsize, or seed change.
+            // Detect version, level (map choice), url, worldsize, or seed change.
             // Any of these should invalidate the saved homes.
             // Checking network would wipe with EVERY update during the month!
             if((configData.GameVersion.Save > 0 && configData.GameVersion.Save != RustSave)
             || (configData.GameVersion.Level != null && configData.GameVersion.Level != RustLevel)
+            || (configData.GameVersion.LevelURL != null && configData.GameVersion.LevelURL != RustLevelUrl)
             || (configData.GameVersion.WorldSize > 0 && configData.GameVersion.WorldSize != RustWorldSize)
             || (configData.GameVersion.Seed > 0 && configData.GameVersion.Seed != RustSeed)
                 )
@@ -3424,9 +3425,9 @@ namespace Oxide.Plugins
             bool foundblock = false;
             int i = 0;
 
-            // First, check that there is a building block at the target
             foreach(var collider in colliders)
             {
+                // First, check that there is a building block at the target
                 var block = collider.GetComponentInParent<BuildingBlock>();
                 i++;
                 if(block != null)
@@ -3493,6 +3494,10 @@ namespace Oxide.Plugins
             BuildingManager.Building building = block.GetBuilding();
             if(building != null)
             {
+#if DEBUG
+                Puts("Found building, checking privileges...");
+                Puts($"Building ID: {building.ID}");
+#endif
                 // cupboard overlap.  Check privs.
                 if(building.buildingPrivileges == null)
                 {
@@ -3503,6 +3508,7 @@ namespace Oxide.Plugins
                 }
 
                 ulong hitEntityOwnerID = block.OwnerID != 0 ? block.OwnerID : 0;
+                Puts($"OwnerID == {hitEntityOwnerID.ToString()}");
                 foreach(var privs in building.buildingPrivileges)
                 {
                     if(CupboardAuthCheck(privs, hitEntityOwnerID))
@@ -3515,16 +3521,24 @@ namespace Oxide.Plugins
                     }
                     else if(obb && player.userID == hitEntityOwnerID)
                     {
-                        // player set the cupboard and is allowed in by config
 #if DEBUG
+                        // player set the cupboard and is allowed in by config
                         Puts("Player owns cupboard with no auth, but allowed by CupOwnerAllowOnBuildingBlocked=true");
 #endif
                         return true;
                     }
+                    else if(player.userID == hitEntityOwnerID)
+                    {
+#if DEBUG
+                        // player set the cupboard but is blocked by config
+                        Puts("Player owns cupboard with no auth, but blocked by CupOwnerAllowOnBuildingBlocked=false");
+#endif
+                        return false;
+                    }
                 }
             }
 #if DEBUG
-            Puts("No cupboard found - we cannot tell the status of this block");
+            Puts("No cupboard or building found - we cannot tell the status of this block");
 #endif
             return true;
         }
@@ -3535,9 +3549,15 @@ namespace Oxide.Plugins
             {
                 if(auth == hitEntityOwnerID)
                 {
+#if DEBUG
+                    Puts("Player has auth");
+#endif
                     return true;
                 }
             }
+#if DEBUG
+            Puts("Found no auth");
+#endif
             return false;
         }
 
