@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.35", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.36", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -82,6 +82,7 @@ namespace Oxide.Plugins
             public bool TPREnabled { get; set; }
             public bool TownEnabled { get; set; }
             public bool InterruptTPOnHurt { get; set; }
+            public bool InterruptTPOnSafe { get; set; }
             public Dictionary<string, string> BlockedItems { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             public string BypassCMD { get; set; }
             public bool UseEconomics { get; set; }
@@ -205,6 +206,7 @@ namespace Oxide.Plugins
                     TPREnabled = true,
                     TownEnabled = true,
                     InterruptTPOnHurt = true,
+                    InterruptTPOnSafe = true,
                     BypassCMD = "pay",
                     UseEconomics = false,
                     UseServerRewards = false
@@ -2574,7 +2576,7 @@ namespace Oxide.Plugins
                 return "TPHotAirBalloon";
             if (inlift)
                 return "TPLift";
-            if (player.InSafeZone())
+            if (player.InSafeZone() && configData.Settings.InterruptTPOnSafe == true)
                 return "TPSafeZone";
             if (!craft && player.inventory.crafting.queue.Count > 0)
                 return "TPCrafting";
