@@ -14,13 +14,16 @@ using Oxide.Core.Plugins;
 using Oxide.Game.Rust;
 using Rust;
 using UnityEngine;
+using static UnityEngine.Vector3;
 using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.43", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.44", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
+        private static readonly Vector3 Up = up;
+        private static readonly Vector3 Down = down;
         private const string NewLine = "\n";
         private const string ConfigDefaultPermVip = "nteleportation.vip";
         private const string PermDeleteHome = "nteleportation.deletehome";
@@ -301,7 +304,7 @@ namespace Oxide.Plugins
                 {"HomeFoundationNotOwned", "You can't use home on someone else's house."},
                 {"HomeFoundationUnderneathFoundation", "You can't use home on a foundation that is underneath another foundation."},
                 {"HomeFoundationNotFriendsOwned", "You or a friend need to own the house to use home!"},
-                {"HomeRemovedInvalid", "Your home '{0}' was removed because not on a foundation or not owned!"},
+                {"HomeRemovedInvalid", "Your home '{0}' was removed because it's not on a foundation or owned!"},
                 {"HomeRemovedInsideBlock", "Your home '{0}' was removed because inside a foundation!"},
                 {"HomeRemove", "You have removed your home {0}!"},
                 {"HomeDelete", "You have removed {0}'s home '{1}'!"},
@@ -2721,27 +2724,77 @@ namespace Oxide.Plugins
 
         private string CheckTargetLocation(BasePlayer player, Vector3 targetLocation, bool build, bool owner)
         {
+            // build == UsableIntoBuildingBlocked
+            // owner == CupOwnerAllowOnBuildingBlocked (applies to block if no cupboard)
             var colliders = Pool.GetList<Collider>();
-            Vis.Colliders(targetLocation, 0.1f, colliders, triggerLayer);
+            Vis.Colliders(targetLocation, 0.1f, colliders, buildingLayer);
             var cups = false;
-            foreach (var collider in colliders)
+            foreach(var collider in colliders)
             {
-                var cup = collider.GetComponentInParent<BuildingPrivlidge>();
-                if (cup == null) continue;
-                cups = true;
-                if (owner && player.userID == cup.OwnerID)
+                var block = collider.GetComponentInParent<BuildingBlock>();
+                if (block == null)
                 {
-                    Pool.FreeList(ref colliders);
-                    return null;
+                    continue;
                 }
-                if (cup.IsAuthed(player))
+                cups = true;
+
+                if(CheckCupboardBlock(block, player, owner))
                 {
-                    Pool.FreeList(ref colliders);
-                    return null;
+                    cups = false;
+                    continue;
+                }
+                if (owner && player.userID == block.OwnerID)
+                {
+                    cups = false;
+                    continue;
                 }
             }
             Pool.FreeList(ref colliders);
+            var builds = build.ToString();
+            var cupss = cups.ToString();
             return cups && !build ? "TPTargetBuildingBlocked" : null;
+        }
+
+        // Check that a building block is owned by/attached to a cupboard, allow tp if not blocked unless allowed by config
+        private bool CheckCupboardBlock(BuildingBlock block, BasePlayer player, bool owner)
+        {
+            // owner == CupOwnerAllowOnBuildingBlocked
+            BuildingManager.Building building = block.GetBuilding();
+            if(building != null)
+            {
+                // cupboard overlap.  Check privs.
+                if(building.buildingPrivileges == null)
+                {
+                    return false;
+                }
+
+                ulong hitEntityOwnerID = block.OwnerID != 0 ? block.OwnerID : 0;
+                if (owner && player.userID == hitEntityOwnerID)
+                {
+                    return true;
+                }
+
+                foreach(var privs in building.buildingPrivileges)
+                {
+                    if(CupboardAuthCheck(privs, hitEntityOwnerID))
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private bool CupboardAuthCheck(BuildingPrivlidge priv, ulong hitEntityOwnerID)
+        {
+            foreach(var auth in priv.authorizedPlayers.Select(x => x.userid).ToArray())
+            {
+                if(auth == hitEntityOwnerID)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private string CheckInsideBlock(Vector3 targetLocation)
@@ -2901,8 +2954,7 @@ namespace Oxide.Plugins
 
         private bool UnderneathFoundation(Vector3 position)
         {
-            RaycastHit hit;
-            if (Physics.Raycast(new Ray(position, Vector3.up), out hit, 10, buildingLayer))
+            foreach(var hit in Physics.RaycastAll(position, up, 2f, buildingLayer))
             {
                 if (hit.GetCollider().name.Contains("foundation"))
                 {
