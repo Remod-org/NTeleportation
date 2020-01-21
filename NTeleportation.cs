@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.62", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.63", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -337,13 +337,6 @@ namespace Oxide.Plugins
 
         private void Init()
         {
-            RustNetwork = Convert.ToInt32(Protocol.network);
-            RustSave = Convert.ToInt32(Protocol.save);
-            RustLevel = ConVar.Server.level;
-            RustLevelUrl = ConVar.Server.levelurl;
-            RustWorldSize = ConVar.Server.worldsize;
-            RustSeed = ConVar.Server.seed;
-            //Puts($"Game Version: {RustNetwork}.{RustSave}, Url: {RustLevelUrl}, Level: {RustLevel}, size: {RustWorldSize}, seed: {RustSeed}");
             lang.RegisterMessages(new Dictionary<string, string>
             {
                 {"AdminTP", "You teleported to {0}!"},
@@ -1215,35 +1208,6 @@ namespace Oxide.Plugins
             dataHome = GetFile(nameof(NTeleportation) + "Home");
             Home = dataHome.ReadObject<Dictionary<ulong, HomeData>>();
 
-            // Detect version, level (map choice), worldsize, or seed change.
-            // Any of these should invalidate the saved homes.
-            // Checking network would wipe with EVERY update during the month!
-            if((configData.GameVersion.Save > 0 && configData.GameVersion.Save != RustSave)
-            || (configData.GameVersion.Level != null && configData.GameVersion.Level != RustLevel)
-            || (configData.GameVersion.WorldSize > 0 && configData.GameVersion.WorldSize != RustWorldSize)
-            || (configData.GameVersion.Seed > 0 && configData.GameVersion.Seed != RustSeed))
-            {
-                if(configData.Settings.WipeOnUpgradeOrChange == true)
-                {
-                    // Only wipe for the brave using this value set to true
-                    Puts("Rust was upgraded or map changed - clearing homes!");
-					// BUG: Disabled in 1.0.62
-                    //Home.Clear();
-                    //changedHome = true;
-                }
-                else
-                {
-                    Puts("Rust was upgraded or map changed - homes may be invalid!");
-                }
-            }
-            configData.GameVersion.Network = RustNetwork;
-            configData.GameVersion.Save = RustSave;
-            configData.GameVersion.Level   = RustLevel;
-            configData.GameVersion.LevelURL = RustLevelUrl;
-            configData.GameVersion.WorldSize = RustWorldSize;
-            configData.GameVersion.Seed    = RustSeed;
-            Config.WriteObject(configData, true);
-
             dataTPR = GetFile(nameof(NTeleportation) + "TPR");
             TPR = dataTPR.ReadObject<Dictionary<ulong, TeleportData>>();
             dataTown = GetFile(nameof(NTeleportation) + "Town");
@@ -1321,6 +1285,44 @@ namespace Oxide.Plugins
                 }
                 ReverseBlockedItems[definition.itemid] = item.Value;
             }
+
+            RustNetwork   = Convert.ToInt32(Protocol.network);
+            RustSave      = Convert.ToInt32(Protocol.save);
+            RustLevel     = ConVar.Server.level;
+            RustLevelUrl  = ConVar.Server.levelurl;
+            RustWorldSize = ConVar.Server.worldsize;
+            RustSeed      = ConVar.Server.seed;
+            Puts($"Game Version: {RustNetwork}.{RustSave}, Url: {RustLevelUrl}, Level: {RustLevel}, size: {RustWorldSize}, seed: {RustSeed}");
+
+            // Detect version, level (map choice), worldsize, or seed change.
+            // Any of these should invalidate the saved homes.
+            // Checking network would wipe with EVERY update during the month!
+            if((configData.GameVersion.Save > 0 && configData.GameVersion.Save != RustSave)
+            || (configData.GameVersion.Level != null && configData.GameVersion.Level != RustLevel)
+            || (configData.GameVersion.WorldSize > 0 && configData.GameVersion.WorldSize != RustWorldSize)
+            || (configData.GameVersion.Seed > 0 && configData.GameVersion.Seed != RustSeed)
+                )
+            {
+                if(configData.Settings.WipeOnUpgradeOrChange == true)
+                {
+                    // Only wipe for the brave using this value set to true
+                    Puts("Rust was upgraded or map changed - clearing homes!");
+                    Home.Clear();
+                    changedHome = true;
+                }
+                else
+                {
+                    Puts("Rust was upgraded or map changed - homes may be invalid!");
+                }
+            }
+
+            configData.GameVersion.Network   = RustNetwork;
+            configData.GameVersion.Save      = RustSave;
+            configData.GameVersion.Level     = RustLevel;
+            configData.GameVersion.LevelURL  = RustLevelUrl;
+            configData.GameVersion.WorldSize = RustWorldSize;
+            configData.GameVersion.Seed      = RustSeed;
+            Config.WriteObject(configData, true);
         }
 
         void OnServerSave()
