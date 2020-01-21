@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.78", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.79", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -731,6 +731,36 @@ namespace Oxide.Plugins
                     })
                 },
                 {
+                    "SyntaxCommandOutpost", string.Join(NewLine, new[]
+                    {
+                        "A Syntax Error Occurred!",
+                        "You can only use the /town command as follows:",
+                        "/outpost - Teleports yourself to the Outpost.",
+                        "/outpost pay - Teleports yourself to the Outpost, paying the penalty."
+                    })
+                },
+                {
+                    "SyntaxCommandOutpostAdmin", string.Join(NewLine, new[]
+                    {
+                        "/outpost set - Saves the current location as Outpost.",
+                    })
+                },
+                {
+                    "SyntaxCommandBandit", string.Join(NewLine, new[]
+                    {
+                        "A Syntax Error Occurred!",
+                        "You can only use the /bandit command as follows:",
+                        "/bandit - Teleports yourself to the Bandit Town.",
+                        "/bandit pay - Teleports yourself to the Bandit Town, paying the penalty."
+                    })
+                },
+                {
+                    "SyntaxCommandBanditAdmin", string.Join(NewLine, new[]
+                    {
+                        "/bandit set - Saves the current location as Bandit Town.",
+                    })
+                },
+                {
                     "SyntaxCommandHomeDelete", string.Join(NewLine, new[]
                     {
                         "A Syntax Error Occurred!",
@@ -1209,15 +1239,15 @@ namespace Oxide.Plugins
             {
                 configData = Config.ReadObject<ConfigData>();
             }
-            catch (Exception)
+            catch(Exception)
             {
                 Puts("Corrupt config, loading default...");
                 LoadDefaultConfig();
             }
 
-            if (!(configData.Version == Version))
+            if(!(configData.Version == Version))
             {
-                if (configData.Home.VIPHomesLimits == null)
+                if(configData.Home.VIPHomesLimits == null)
                 {
                     configData.Home.VIPHomesLimits = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
                     configData.Home.VIPDailyLimits = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
@@ -1231,7 +1261,7 @@ namespace Oxide.Plugins
                     configData.Bandit.VIPDailyLimits = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
                     configData.Bandit.VIPCooldowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
                 }
-                if (configData.Home.VIPCountdowns == null)
+                if(configData.Home.VIPCountdowns == null)
                 {
                     configData.Home.VIPCountdowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
                     configData.TPR.VIPCountdowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
@@ -1239,14 +1269,16 @@ namespace Oxide.Plugins
                     configData.Outpost.VIPCountdowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
                     configData.Bandit.VIPCountdowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } };
                 }
-                if (configData.Version <= new VersionNumber(1, 0, 4))
+                if(configData.Version <= new VersionNumber(1, 0, 4))
+                {
                     configData.Home.AllowAboveFoundation = true;
-                if (configData.Version < new VersionNumber(1, 0, 14))
+                }
+                if(configData.Version < new VersionNumber(1, 0, 14))
                 {
                     configData.Home.UsableIntoBuildingBlocked = true;
                     configData.TPR.UsableIntoBuildingBlocked = true;
                 }
-                if (configData.Version < new VersionNumber(1, 0, 58))
+                if(configData.Version < new VersionNumber(1, 0, 58))
                 {
                     configData.Settings.InterruptTPOnMounted = true;
                     configData.Settings.InterruptTPOnSwimming = true;
@@ -1285,23 +1317,23 @@ namespace Oxide.Plugins
                 {
                     configData.Settings.StrictFoundationCheck = false;
                 }
-                if (configData.Settings.MaximumTemp < 1)
+                if(configData.Settings.MaximumTemp < 1)
                 {
                     configData.Settings.MaximumTemp = 40f;
                 }
-                if (configData.Settings.DefaultMonumentSize < 1)
+                if(configData.Settings.DefaultMonumentSize < 1)
                 {
                     configData.Settings.DefaultMonumentSize = 50f;
                 }
-                if (configData.Settings.CaveDistanceSmall < 1)
+                if(configData.Settings.CaveDistanceSmall < 1)
                 {
                     configData.Settings.CaveDistanceSmall = 40f;
                 }
-                if (configData.Settings.CaveDistanceMedium < 1)
+                if(configData.Settings.CaveDistanceMedium < 1)
                 {
                     configData.Settings.CaveDistanceMedium = 60f;
                 }
-                if (configData.Settings.CaveDistanceLarge < 1)
+                if(configData.Settings.CaveDistanceLarge < 1)
                 {
                     configData.Settings.CaveDistanceLarge = 100f;
                 }
@@ -1309,7 +1341,7 @@ namespace Oxide.Plugins
                 {
                     configData.GameVersion = new GameVersionData();
                 }
-                if (configData.GameVersion.Save < 1)
+                if(configData.GameVersion.Save < 1)
                 {
                     configData.GameVersion.Network = Convert.ToInt32(Protocol.network);
                     configData.GameVersion.Save = Convert.ToInt32(Protocol.save);
@@ -1407,10 +1439,10 @@ namespace Oxide.Plugins
             CheckPerms(configData.Bandit.VIPDailyLimits);
             CheckPerms(configData.Bandit.VIPCooldowns);
 
-            foreach (var item in configData.Settings.BlockedItems)
+            foreach(var item in configData.Settings.BlockedItems)
             {
                 var definition = ItemManager.FindItemDefinition(item.Key);
-                if (definition == null)
+                if(definition == null)
                 {
                     Puts("Blocked item not found: {0}", item.Key);
                     continue;
@@ -3089,17 +3121,18 @@ namespace Oxide.Plugins
             switch(command)
             {
                 case "outpost":
-                    if (!IsAllowedMsg(player, PermTpOutpost)) return;
+                    if(!IsAllowedMsg(player, PermTpOutpost)) return;
                     break;
                 case "bandit":
-                    if (!IsAllowedMsg(player, PermTpBandit)) return;
+                    if(!IsAllowedMsg(player, PermTpBandit)) return;
                     break;
                 default:
-                    if (!IsAllowedMsg(player, PermTpTown)) return;
+                    if(!IsAllowedMsg(player, PermTpTown)) return;
                     break;
             }
 
-            if (args.Length == 1 && IsAllowed(player) && args[0].ToLower().Equals("set"))
+            // For admin using set command
+            if(args.Length == 1 && IsAllowed(player) && args[0].ToLower().Equals("set"))
             {
                 switch(command)
                 {
@@ -3121,14 +3154,11 @@ namespace Oxide.Plugins
                 }
                 return;
             }
+
             bool paidmoney = false;
 
-            if(!configData.Settings.TownEnabled && command == null)
-            {
-                PrintMsgL(player, "TownTPDisabled");
-                return;
-            }
-            else if(!configData.Settings.OutpostEnabled && command == "outpost")
+            // Is outpost/bandit/town usage enabled?
+            if(!configData.Settings.OutpostEnabled && command == "outpost")
             {
                 PrintMsgL(player, "OutpostTPDisabled");
                 return;
@@ -3138,20 +3168,24 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "BanditTPDisabled");
                 return;
             }
-
-            if (args.Length == 1 && (args[0].ToLower() != configData.Settings.BypassCMD.ToLower()))
+            else if(!configData.Settings.TownEnabled)
             {
-                PrintMsgL(player, "SyntaxCommandTown");
-                if (IsAllowed(player)) PrintMsgL(player, "SyntaxCommandTownAdmin");
+                PrintMsgL(player, "TownTPDisabled");
                 return;
             }
 
-            if (configData.Town.Location == default(Vector3) && command == null)
+            // Are they trying to bypass cooldown or did they just type something else?
+            if(args.Length == 1 && (args[0].ToLower() != configData.Settings.BypassCMD.ToLower()))
             {
-                PrintMsgL(player, "TownTPNotSet");
+                string com = command == null ? "town" : command;
+                string msg  = "SyntaxCommand" + char.ToUpper(com[0]) + com.Substring(1);
+                PrintMsgL(player, msg);
+                if(IsAllowed(player)) PrintMsgL(player, msg + "Admin");
                 return;
             }
-            else if(configData.Outpost.Location == default(Vector3) && command == "outpost")
+
+            // Is outpost/bandit/town location set?
+            if(configData.Outpost.Location == default(Vector3) && command == "outpost")
             {
                 PrintMsgL(player, "OutpostTPNotSet");
                 return;
@@ -3161,15 +3195,15 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "BanditTPNotSet");
                 return;
             }
+            else if(configData.Town.Location == default(Vector3))
+            {
+                PrintMsgL(player, "TownTPNotSet");
+                return;
+            }
 
             TeleportData teleportData = new TeleportData();;
             var timestamp = Facepunch.Math.Epoch.Current;
             var currentDate = DateTime.Now.ToString("d");
-            if(teleportData.Date != currentDate)
-            {
-                teleportData.Amount = 0;
-                teleportData.Date = currentDate;
-            }
 
             string err = null;
             int cooldown = 0;
@@ -3201,6 +3235,12 @@ namespace Oxide.Plugins
                     {
                         Outpost[player.userID] = teleportData = new TeleportData();
                     }
+                    if(teleportData.Date != currentDate)
+                    {
+                        teleportData.Amount = 0;
+                        teleportData.Date = currentDate;
+                    }
+
                     targetPay = configData.Outpost.Pay;
                     targetBypass = configData.Outpost.Bypass;
 
@@ -3225,6 +3265,11 @@ namespace Oxide.Plugins
                     {
                         Bandit[player.userID] = teleportData = new TeleportData();
                     }
+                    if(teleportData.Date != currentDate)
+                    {
+                        teleportData.Amount = 0;
+                        teleportData.Date = currentDate;
+                    }
                     targetPay = configData.Bandit.Pay;
                     targetBypass = configData.Bandit.Bypass;
 
@@ -3248,6 +3293,11 @@ namespace Oxide.Plugins
                     if(!Town.TryGetValue(player.userID, out teleportData))
                     {
                         Town[player.userID] = teleportData = new TeleportData();
+                    }
+                    if(teleportData.Date != currentDate)
+                    {
+                        teleportData.Amount = 0;
+                        teleportData.Date = currentDate;
                     }
                     targetPay = configData.Town.Pay;
                     targetBypass = configData.Town.Bypass;
@@ -3715,7 +3765,6 @@ namespace Oxide.Plugins
         }
 
         #region Util
-
         private string FormatTime(long seconds)
         {
             var timespan = TimeSpan.FromSeconds(seconds);
@@ -3726,9 +3775,9 @@ namespace Oxide.Plugins
         {
             return System.Math.PI / 180 * angle;
         }
+        #endregion
 
         #region Teleport
-
         public void TeleportToPlayer(BasePlayer player, BasePlayer target) => Teleport(player, target.transform.position);
 
         public void TeleportToPosition(BasePlayer player, float x, float y, float z) => Teleport(player, new Vector3(x, y, z));
@@ -3770,11 +3819,9 @@ namespace Oxide.Plugins
             //player.inventory.crafting.CancelAll(true);
             //player.UpdatePlayerCollider(true, false);
         }
-
         #endregion
 
         #region Checks
-
         // Used by tpa only to provide for offset from the target to avoid overlap
         private Vector3 CheckPosition(Vector3 position)
         {
@@ -4588,37 +4635,41 @@ namespace Oxide.Plugins
 
         private int GetHigher(BasePlayer player, Dictionary<string, int> limits, int limit)
         {
-            foreach (var l in limits)
+            foreach(var l in limits)
             {
-                if (permission.UserHasPermission(player.UserIDString, l.Key) && l.Value > limit)
+                if(permission.UserHasPermission(player.UserIDString, l.Key) && l.Value > limit)
+                {
                     limit = l.Value;
+                }
             }
             return limit;
         }
 
         private int GetLower(BasePlayer player, Dictionary<string, int> times, int time)
         {
-            foreach (var l in times)
+            foreach(var l in times)
             {
-                if (permission.UserHasPermission(player.UserIDString, l.Key) && l.Value < time)
+                if(permission.UserHasPermission(player.UserIDString, l.Key) && l.Value < time)
+                {
                     time = l.Value;
+                }
             }
             return time;
         }
 
         private void CheckPerms(Dictionary<string, int> limits)
         {
-            foreach (var limit in limits)
+            foreach(var limit in limits)
             {
-                if (!permission.PermissionExists(limit.Key))
+                if(!permission.PermissionExists(limit.Key))
+                {
                     permission.RegisterPermission(limit.Key, this);
+                }
             }
         }
-
         #endregion
 
         #region Message
-
         private string _(string msgId, BasePlayer player, params object[] args)
         {
             var msg = lang.GetMessage(msgId, this, player?.UserIDString);
@@ -4627,20 +4678,18 @@ namespace Oxide.Plugins
 
         private void PrintMsgL(BasePlayer player, string msgId, params object[] args)
         {
-            if (player == null) return;
+            if(player == null) return;
             PrintMsg(player, _(msgId, player, args));
         }
 
         private void PrintMsg(BasePlayer player, string msg)
         {
-            if (player == null) return;
+            if(player == null) return;
             SendReply(player, $"{configData.Settings.ChatName}{msg}");
         }
-
         #endregion
 
         #region DrawBox
-
         private static void DrawBox(BasePlayer player, Vector3 center, Quaternion rotation, Vector3 size)
         {
             size = size / 2;
@@ -4672,11 +4721,9 @@ namespace Oxide.Plugins
         {
             return rotation * (point - pivot) + pivot;
         }
-
         #endregion
 
         #region FindPlayer
-
         private ulong FindPlayersSingleId(string nameOrIdOrIp, BasePlayer player)
         {
             var targets = FindPlayers(nameOrIdOrIp);
@@ -4751,30 +4798,23 @@ namespace Oxide.Plugins
             }
             return players;
         }
-
-        #endregion
-
         #endregion
 
         #region API
-
         private Dictionary<string, Vector3> GetHomes(object playerObj)
         {
-            if (playerObj == null) return null;
-            if (playerObj is string)
-                playerObj = Convert.ToUInt64(playerObj);
-            if (!(playerObj is ulong))
-                throw new ArgumentException("playerObj");
+            if(playerObj == null) return null;
+            if(playerObj is string) playerObj = Convert.ToUInt64(playerObj);
+            if(!(playerObj is ulong)) throw new ArgumentException("playerObj");
             var playerId = (ulong)playerObj;
             HomeData homeData;
-            if (!Home.TryGetValue(playerId, out homeData) || homeData.Locations.Count == 0)
-                return null;
+            if (!Home.TryGetValue(playerId, out homeData) || homeData.Locations.Count == 0) return null;
             return homeData.Locations;
         }
 
         private int GetLimitRemaining(BasePlayer player, string type)
         {
-            if (player == null || string.IsNullOrEmpty(type)) return 0;
+            if(player == null || string.IsNullOrEmpty(type)) return 0;
             var currentDate = DateTime.Now.ToString("d");
             int limit;
             var remaining = -1;
@@ -4783,15 +4823,19 @@ namespace Oxide.Plugins
                 case "home":
                     limit = GetHigher(player, configData.Home.VIPDailyLimits, configData.Home.DailyLimit);
                     HomeData homeData;
-                    if (!Home.TryGetValue(player.userID, out homeData))
+                    if(!Home.TryGetValue(player.userID, out homeData))
+                    {
                         Home[player.userID] = homeData = new HomeData();
-                    if (homeData.Teleports.Date != currentDate)
+                    }
+                    if(homeData.Teleports.Date != currentDate)
                     {
                         homeData.Teleports.Amount = 0;
                         homeData.Teleports.Date = currentDate;
                     }
-                    if (limit > 0)
+                    if(limit > 0)
+                    {
                         remaining = limit - homeData.Teleports.Amount;
+                    }
                     break;
                 case "town":
                     limit = GetHigher(player, configData.Town.VIPDailyLimits, configData.Town.DailyLimit);
@@ -4847,15 +4891,19 @@ namespace Oxide.Plugins
                 case "tpr":
                     limit = GetHigher(player, configData.TPR.VIPDailyLimits, configData.TPR.DailyLimit);
                     TeleportData tprData;
-                    if (!TPR.TryGetValue(player.userID, out tprData))
+                    if(!TPR.TryGetValue(player.userID, out tprData))
+                    {
                         TPR[player.userID] = tprData = new TeleportData();
-                    if (tprData.Date != currentDate)
+                    }
+                    if(tprData.Date != currentDate)
                     {
                         tprData.Amount = 0;
                         tprData.Date = currentDate;
                     }
-                    if (limit > 0)
+                    if(limit > 0)
+                    {
                         remaining = limit - tprData.Amount;
+                    }
                     break;
             }
             return remaining;
@@ -4863,56 +4911,101 @@ namespace Oxide.Plugins
 
         private int GetCooldownRemaining(BasePlayer player, string type)
         {
-            if (player == null || string.IsNullOrEmpty(type)) return 0;
+            if(player == null || string.IsNullOrEmpty(type)) return 0;
             var currentDate = DateTime.Now.ToString("d");
             var timestamp = Facepunch.Math.Epoch.Current;
             int cooldown;
             var remaining = -1;
-            switch (type.ToLower())
+            switch(type.ToLower())
             {
                 case "home":
                     cooldown = GetLower(player, configData.Home.VIPCooldowns, configData.Home.Cooldown);
                     HomeData homeData;
-                    if (!Home.TryGetValue(player.userID, out homeData))
+                    if(!Home.TryGetValue(player.userID, out homeData))
+                    {
                         Home[player.userID] = homeData = new HomeData();
-                    if (homeData.Teleports.Date != currentDate)
+                    }
+                    if(homeData.Teleports.Date != currentDate)
                     {
                         homeData.Teleports.Amount = 0;
                         homeData.Teleports.Date = currentDate;
                     }
-                    if (cooldown > 0 && timestamp - homeData.Teleports.Timestamp < cooldown)
+                    if(cooldown > 0 && timestamp - homeData.Teleports.Timestamp < cooldown)
+                    {
                         remaining = cooldown - (timestamp - homeData.Teleports.Timestamp);
+                    }
                     break;
                 case "town":
                     cooldown = GetLower(player, configData.Town.VIPCooldowns, configData.Town.Cooldown);
                     TeleportData townData;
-                    if (!Town.TryGetValue(player.userID, out townData))
+                    if(!Town.TryGetValue(player.userID, out townData))
+                    {
                         Town[player.userID] = townData = new TeleportData();
-                    if (townData.Date != currentDate)
+                    }
+                    if(townData.Date != currentDate)
                     {
                         townData.Amount = 0;
                         townData.Date = currentDate;
                     }
-                    if (cooldown > 0 && timestamp - townData.Timestamp < cooldown)
+                    if(cooldown > 0 && timestamp - townData.Timestamp < cooldown)
+                    {
                         remaining = cooldown - (timestamp - townData.Timestamp);
+                    }
+                    break;
+                case "outpost":
+                    cooldown = GetLower(player, configData.Outpost.VIPCooldowns, configData.Outpost.Cooldown);
+                    TeleportData outpostData;
+                    if(!Outpost.TryGetValue(player.userID, out outpostData))
+                    {
+                        Outpost[player.userID] = outpostData = new TeleportData();
+                    }
+                    if(outpostData.Date != currentDate)
+                    {
+                        outpostData.Amount = 0;
+                        outpostData.Date = currentDate;
+                    }
+                    if(cooldown > 0 && timestamp - outpostData.Timestamp < cooldown)
+                    {
+                        remaining = cooldown - (timestamp - outpostData.Timestamp);
+                    }
+                    break;
+                case "bandit":
+                    cooldown = GetLower(player, configData.Bandit.VIPCooldowns, configData.Bandit.Cooldown);
+                    TeleportData banditData;
+                    if(!Bandit.TryGetValue(player.userID, out banditData))
+                    {
+                        Bandit[player.userID] = banditData = new TeleportData();
+                    }
+                    if(banditData.Date != currentDate)
+                    {
+                        banditData.Amount = 0;
+                        banditData.Date = currentDate;
+                    }
+                    if(cooldown > 0 && timestamp - banditData.Timestamp < cooldown)
+                    {
+                        remaining = cooldown - (timestamp - banditData.Timestamp);
+                    }
                     break;
                 case "tpr":
                     cooldown = GetLower(player, configData.TPR.VIPCooldowns, configData.TPR.Cooldown);
                     TeleportData tprData;
-                    if (!TPR.TryGetValue(player.userID, out tprData))
+                    if(!TPR.TryGetValue(player.userID, out tprData))
+                    {
                         TPR[player.userID] = tprData = new TeleportData();
-                    if (tprData.Date != currentDate)
+                    }
+                    if(tprData.Date != currentDate)
                     {
                         tprData.Amount = 0;
                         tprData.Date = currentDate;
                     }
-                    if (cooldown > 0 && timestamp - tprData.Timestamp < cooldown)
+                    if(cooldown > 0 && timestamp - tprData.Timestamp < cooldown)
+                    {
                         remaining = cooldown - (timestamp - tprData.Timestamp);
+                    }
                     break;
             }
             return remaining;
         }
-
         #endregion
 
         private class UnityVector3Converter : JsonConverter
