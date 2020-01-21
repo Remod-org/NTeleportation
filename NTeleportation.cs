@@ -1,3 +1,4 @@
+//#define DEBUG
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -19,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.50", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.51", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -152,6 +153,7 @@ namespace Oxide.Plugins
             public Dictionary<string, int> VIPCooldowns { get; set; }
             public Dictionary<string, int> VIPCountdowns { get; set; }
             public int RequestDuration { get; set; }
+            public bool OffsetTPRTarget { get; set; }
             public bool BlockTPAOnCeiling { get; set; }
             public bool UsableOutOfBuildingBlocked { get; set; }
             public bool UsableIntoBuildingBlocked { get; set; }
@@ -276,6 +278,7 @@ namespace Oxide.Plugins
                     VIPCountdowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } },
                     RequestDuration = 30,
                     BlockTPAOnCeiling = true,
+                    OffsetTPRTarget = true,
                     CupOwnerAllowOnBuildingBlocked = true
                 },
                 Town = new TownData
@@ -371,6 +374,7 @@ namespace Oxide.Plugins
                 {"TPMoney", "{0} deducted from your account!"},
                 {"TPNoMoney", "You do not have {0} in any account!"},
                 {"TPRCooldownBypassP2", "Type /tpr {0}." },
+                {"TPRCooldownBypassP2a", "Type /tpr NAME {0}." },
                 {"TPRLimitReached", "You have reached the daily limit of {0} teleport requests today!"},
                 {"TPRAmount", "You have {0} teleport requests left today!"},
                 {"TPRTarget", "Your target is currently not available!"},
@@ -1796,7 +1800,8 @@ namespace Oxide.Plugins
         {
             if (!IsAllowedMsg(player, PermTpR)) return;
             if (!configData.Settings.TPREnabled) return;
-            if (args.Length != 1)
+            //if (args.Length != 1)
+            if (args.Length == 0)
             {
                 PrintMsgL(player, "SyntaxCommandTPR");
                 return;
@@ -1881,7 +1886,7 @@ namespace Oxide.Plugins
                     if(configData.TPR.Bypass > 0 && configData.Settings.BypassCMD != null)
                     {
                         PrintMsgL(player, "TPRCooldownBypassP", configData.TPR.Bypass);
-                        PrintMsgL(player, "TPRCooldownBypassP2", configData.Settings.BypassCMD);
+                        PrintMsgL(player, "TPRCooldownBypassP2a", configData.Settings.BypassCMD);
                     }
                     return;
                 }
@@ -2663,6 +2668,7 @@ namespace Oxide.Plugins
 
         #region Checks
 
+        // Used by tpa only to provide for offset from the target to avoid overlap
         private Vector3 CheckPosition(Vector3 position)
         {
             var hits = Physics.OverlapSphere(position, 2, blockLayer);
@@ -2678,24 +2684,44 @@ namespace Oxide.Plugins
                 buildingBlock = block;
                 distance = Vector3.Distance(block.transform.position, position);
             }
-            if (buildingBlock == null) return position;
+            if (buildingBlock == null || configData.TPR.OffsetTPRTarget == false) return position;
             var blockRotation = buildingBlock.transform.rotation.eulerAngles.y;
             var angles = new[] { 360 - blockRotation, 180 - blockRotation };
             var location = default(Vector3);
             const double r = 1.9;
             var locationDistance = 100f;
+
+#if DEBUG
+            Puts("CheckPosition: Finding suitable target position");
+            var positions = position.ToString();
+            Puts($"CheckPosition:   Old location {positions}");
+#endif
             for (var i = 0; i < angles.Length; i++)
             {
                 var radians = ConvertToRadians(angles[i]);
                 var newX = r * System.Math.Cos(radians);
                 var newZ = r * System.Math.Sin(radians);
+#if DEBUG
+                Puts($"CheckPosition:     Checking angle {i}");
+                var newXs = newX.ToString();
+                var newZs = newZ.ToString();
+                Puts($"CheckPosition:     newX = {newXs}, newZ = {newZs}");
+#endif
                 var newLoc = new Vector3((float)(buildingBlock.transform.position.x + newX), buildingBlock.transform.position.y + .2f, (float)(buildingBlock.transform.position.z + newZ));
                 if (Vector3.Distance(position, newLoc) < locationDistance)
                 {
                     location = newLoc;
                     locationDistance = Vector3.Distance(position, newLoc);
+#if DEBUG
+                    var locs = newLoc.ToString();
+                    Puts($"CheckPosition:     possible new location at {locs}");
+#endif
                 }
             }
+#if DEBUG
+            var locations = location.ToString();
+            Puts($"CheckPosition:   New location {locations}");
+#endif
             return location;
         }
 
@@ -2883,6 +2909,7 @@ namespace Oxide.Plugins
                 ulong hitEntityOwnerID = block.OwnerID != 0 ? block.OwnerID : 0;
                 if (owner && player.userID == hitEntityOwnerID)
                 {
+                    // player set the cupboard and is allowed in by config
                     return true;
                 }
 
@@ -2890,11 +2917,12 @@ namespace Oxide.Plugins
                 {
                     if(CupboardAuthCheck(privs, hitEntityOwnerID))
                     {
+                        // player is authorized to the cupboard
                         return true;
                     }
                 }
             }
-            return false;
+            return false; // MAY NEED TO BE TRUE I.E. IF NO CUPBOARD AT ALL
         }
 
         private bool CupboardAuthCheck(BuildingPrivlidge priv, ulong hitEntityOwnerID)
