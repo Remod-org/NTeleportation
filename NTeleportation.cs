@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.54", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.55", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -3298,7 +3298,7 @@ namespace Oxide.Plugins
             if(player.IsSwimming())
                 return "TPSwimming";
             // This will have to do until we have a proper parent name for this
-            if(monname.Contains("Oilrig") && configData.Settings.InterruptTPOnRig == true)
+            if(monname != null && monname.Contains("Oilrig") && configData.Settings.InterruptTPOnRig == true)
                 return "TPOilRig";
             if(onship && configData.Settings.InterruptTPOnCargo == true)
                 return "TPCargoShip";
