@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.36", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.37", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -2141,7 +2141,11 @@ namespace Oxide.Plugins
                 if (IsAllowed(player)) PrintMsgL(player, "SyntaxCommandTownAdmin");
                 return;
             }
-
+            if (!configData.Settings.TownEnabled)
+            {
+                PrintMsgL(player, "TownTPNotSet");
+                return;
+            }
             if (configData.Town.Location == default(Vector3))
             {
                 PrintMsgL(player, "TownTPNotSet");
