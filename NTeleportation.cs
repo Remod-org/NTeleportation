@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.72", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.73", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -171,6 +171,8 @@ namespace Oxide.Plugins
             public bool ForceOnTopOfFoundation { get; set; }
             public bool CheckFoundationForOwner { get; set; }
             public bool UseFriends { get; set; }
+            public bool UseClans { get; set; }
+            public bool UseTeams { get; set; }
             public bool UsableOutOfBuildingBlocked { get; set; }
             public bool UsableIntoBuildingBlocked { get; set; }
             public bool CupOwnerAllowOnBuildingBlocked { get; set; }
@@ -325,6 +327,8 @@ namespace Oxide.Plugins
                     ForceOnTopOfFoundation = true,
                     CheckFoundationForOwner = true,
                     UseFriends = true,
+                    UseClans = true,
+                    UseTeams = true,
                     AllowAboveFoundation = true,
                     CheckValidOnList = false,
                     CupOwnerAllowOnBuildingBlocked = true
@@ -1617,21 +1621,11 @@ namespace Oxide.Plugins
 #endif
                     List<BaseEntity> ents = new List<BaseEntity>();
                     Vis.Entities<BaseEntity>(monument.transform.position, 50, ents);
-                    Vector3 b = new Vector3(0,0,0);
-                    Vector3 r = new Vector3(0,0,0);
                     foreach(BaseEntity entity in ents)
                     {
-                        if(entity.PrefabName.Contains("workbench") && b == Vector3.zero)
+                        if(entity.PrefabName.Contains("workbench"))
                         {
-                            b = entity.transform.position;
-                        }
-                        else if(entity.PrefabName.Contains("repair") && r == Vector3.zero)
-                        {
-                            r = entity.transform.position;
-                        }
-                        else if(b != Vector3.zero && r != Vector3.zero && Math.Round(b.z, 1) == Math.Round(r.z, 1))
-                        {
-                            configData.Bandit.Location = b + new Vector3(-1f, 0.1f, -1f);
+                            configData.Bandit.Location = Vector3.Lerp(monument.transform.position, entity.transform.position, 0.45f) + new Vector3(0, 1.5f, 0);
                             setextra = true;
                             break;
                         }
@@ -4006,8 +4000,8 @@ namespace Oxide.Plugins
             // ubb == UsableIntoBuildingBlocked
             // obb == CupOwnerAllowOnBuildingBlocked
             var colliders = Pool.GetList<Collider>();
-            Vis.Colliders(targetLocation, 0.1f, colliders, buildingLayer);
-            bool blocked = false;
+            Vis.Colliders(targetLocation, 0.2f, colliders, buildingLayer);
+            bool denied = false;
             bool foundblock = false;
             int i = 0;
 
@@ -4026,14 +4020,14 @@ namespace Oxide.Plugins
                     {
                         if(CheckCupboardBlock(block, player, obb))
                         {
-                            blocked = false;
+                            denied = false;
 #if DEBUG
                             Puts("Cupboard either owned or there is no cupboard");
 #endif
                         }
                         else if(ubb && (player.userID != block.OwnerID))
                         {
-                            blocked = false;
+                            denied = false;
 #if DEBUG
                             Puts("Player does not own block, but UsableIntoBuildingBlocked=true");
 #endif
@@ -4045,32 +4039,34 @@ namespace Oxide.Plugins
 #endif
                             if(ubb)
                             {
-                                blocked = false;
+                                denied = false;
 #if DEBUG
                                 Puts("Player not blocked because UsableIntoBuildingBlocked=true");
 #endif
                             }
                             else
                             {
-                                blocked = true;
 #if DEBUG
                                 Puts("Player owns block but blocked by UsableIntoBuildingBlocked=false");
 #endif
+                                denied = true;
+                                break;
                             }
                         }
                         else
                         {
-                            blocked = true;
 #if DEBUG
                             Puts("Player blocked");
 #endif
+                            denied = true;
+                            break;
                         }
                     }
                 }
             }
             Pool.FreeList(ref colliders);
 
-            return blocked ? "TPTargetBuildingBlocked" : null;
+            return denied ? "TPTargetBuildingBlocked" : null;
         }
 
         // Check that a building block is owned by/attached to a cupboard, allow tp if not blocked unless allowed by config
@@ -4200,18 +4196,7 @@ namespace Oxide.Plugins
             for(var i = 0; i < entities.Count; i++)
             {
                 if(entities[i].OwnerID == userID) return null;
-            }
-            if (!configData.Home.UseFriends) return "HomeFoundationNotOwned";
-
-            var moderator = (bool)(Clans?.CallHook("IsModerator", userID) ?? false);
-            var userIdString = userID.ToString();
-            for(var i = 0; i < entities.Count; i++)
-            {
-                var entity = entities[i];
-                if((bool)(Friends?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) || (bool)(Clans?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) && moderator || (bool)(RustIO?.CallHook("HasFriend", entity.OwnerID.ToString(), userIdString) ?? false))
-                {
-                    return null;
-                }
+                else if(IsFriend(userID, entities[i].OwnerID)) return null;
             }
 
             return "HomeFoundationNotFriendsOwned";
@@ -4219,6 +4204,9 @@ namespace Oxide.Plugins
 
         private BuildingBlock GetFoundationOwned(Vector3 position, ulong userID)
         {
+#if DEBUG
+            Puts("GetFoundationOwned() called...");
+#endif
             var entities = GetFoundation(position);
             if(entities.Count == 0) return null;
             if (!configData.Home.CheckFoundationForOwner) return entities[0];
@@ -4226,33 +4214,63 @@ namespace Oxide.Plugins
             for (var i = 0; i < entities.Count; i++)
             {
                 if (entities[i].OwnerID == userID) return entities[i];
-            }
-            if (!configData.Home.UseFriends) return null;
-            var moderator = (bool)(Clans?.CallHook("IsModerator", userID) ?? false);
-            var userIdString = userID.ToString();
-            for (var i = 0; i < entities.Count; i++)
-            {
-                var entity = entities[i];
-                if ((bool)(Friends?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) || (bool)(Clans?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) && moderator || (bool)(RustIO?.CallHook("HasFriend", entity.OwnerID.ToString(), userIdString) ?? false))
-                    return entity;
+                else if(IsFriend(userID, entities[i].OwnerID)) return entities[i];
             }
             return null;
         }
 
-        private List<BuildingBlock> OldGetFoundation(Vector3 positionCoordinates)
+        // Borrowed/modified from PreventLooting and Rewards
+        bool IsFriend(ulong friendid, ulong playerid)
         {
-            var position = GetGround(positionCoordinates);
-            var entities = new List<BuildingBlock>();
-            var hits = Pool.GetList<BuildingBlock>();
-            Vis.Entities(position, 2.5f, hits, buildingLayer);
-            for (var i = 0; i < hits.Count; i++)
+            if(configData.Home.UseFriends && Friends != null)
             {
-                var entity = hits[i];
-                if (!entity.PrefabName.Contains("foundation") || positionCoordinates.y < entity.WorldSpaceBounds().ToBounds().max.y) continue;
-                entities.Add(entity);
+#if DEBUG
+                Puts("Checking Friends...");
+#endif
+                var fr = Friends.CallHook("AreFriends", friendid, playerid);
+                if(fr != null && (bool)fr)
+                {
+#if DEBUG
+                    Puts("  IsFriend: true based on Friends plugin");
+#endif
+                    return true;
+                }
             }
-            Pool.FreeList(ref hits);
-            return entities;
+            if(configData.Home.UseClans && Clans != null)
+            {
+#if DEBUG
+                Puts("Checking Clans...");
+#endif
+                string vclan = (string)Clans?.CallHook("GetClanOf", BasePlayer.FindByID(playerid));
+                string pclan = (string)Clans?.CallHook("GetClanOf", BasePlayer.FindByID(friendid));
+                if(pclan == vclan && pclan != null && vclan != null)
+                {
+#if DEBUG
+                    Puts("  IsFriend: true based on Clans plugin");
+#endif
+                    return true;
+                }
+            }
+            if(configData.Home.UseTeams)
+            {
+#if DEBUG
+                Puts("Checking Rust teams...");
+#endif
+                BasePlayer player = BasePlayer.FindByID(playerid);
+                if(player.currentTeam != (long)0)
+                {
+                    RelationshipManager.PlayerTeam playerTeam = RelationshipManager.Instance.FindTeam(player.currentTeam);
+                    if(playerTeam == null) return false;
+                    if(playerTeam.members.Contains(friendid))
+                    {
+#if DEBUG
+                        Puts("  IsFriend: true based on Rust teams");
+#endif
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private List<BuildingBlock> GetFoundation(Vector3 position)
