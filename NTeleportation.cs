@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.31", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.32", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -1374,7 +1374,7 @@ namespace Oxide.Plugins
                     balance = (double)Economics?.CallHook("Balance", player.UserIDString);
                 }
 
-                if(cmdSent == configData.Settings.BypassCMD.ToLower())
+                if((configData.Settings.BypassCMD != null) && (cmdSent == configData.Settings.BypassCMD.ToLower()))
                 {
                     if((configData.Settings.UseEconomics && Economics) && configData.Home.Bypass > 0 && (double)balance > configData.Home.Bypass)
                     {
@@ -1650,7 +1650,7 @@ namespace Oxide.Plugins
                     balance = (double)Economics?.CallHook("Balance", player.UserIDString);
                 }
 
-                if(cmdSent == configData.Settings.BypassCMD.ToLower())
+                if((configData.Settings.BypassCMD != null) && (cmdSent == configData.Settings.BypassCMD.ToLower()))
                 {
                     if((configData.Settings.UseEconomics && Economics) && configData.TPR.Bypass > 0 && (double)balance > configData.TPR.Bypass)
                     {
@@ -2101,7 +2101,7 @@ namespace Oxide.Plugins
                     balance = (double)Economics?.CallHook("Balance", player.UserIDString);
                 }
 
-                if(cmdSent == configData.Settings.BypassCMD.ToLower())
+                if((configData.Settings.BypassCMD != null) && (cmdSent == configData.Settings.BypassCMD.ToLower()))
                 {
                     if((configData.Settings.UseEconomics && Economics) && configData.Town.Bypass > 0 && (double)balance > configData.Town.Bypass)
                     {
