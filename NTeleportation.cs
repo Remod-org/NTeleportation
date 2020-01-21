@@ -18,7 +18,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.42", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.43", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -65,6 +65,7 @@ namespace Oxide.Plugins
         private readonly HashSet<ulong> teleporting = new HashSet<ulong>();
         private SortedDictionary<string, Vector3> monPos  = new SortedDictionary<string, Vector3>();
         private SortedDictionary<string, Vector3> monSize = new SortedDictionary<string, Vector3>();
+        private SortedDictionary<string, Vector3> cavePos  = new SortedDictionary<string, Vector3>();
 
         [PluginReference]
         private Plugin Clans, Economics, ServerRewards, Friends, RustIO;
@@ -92,6 +93,7 @@ namespace Oxide.Plugins
             public string BypassCMD { get; set; }
             public bool UseEconomics { get; set; }
             public bool UseServerRewards { get; set; }
+            public bool WipeOnUpgrade { get; set; }
         }
 
         class AdminSettingsData
@@ -215,7 +217,8 @@ namespace Oxide.Plugins
                     InterruptTPOnMonument = false,
                     BypassCMD = "pay",
                     UseEconomics = false,
-                    UseServerRewards = false
+                    UseServerRewards = false,
+                    WipeOnUpgrade = false
                 },
                 Admin = new AdminSettingsData
                 {
@@ -366,6 +369,7 @@ namespace Oxide.Plugins
                 {"TPCrafting", "You can't teleport while crafting!"},
                 {"TPBlockedItem", "You can't teleport while carrying: {0}!"},
                 {"TooCloseToMon", "You can't teleport so close to the {0}!"},
+                {"TooCloseToCave", "You can't teleport so close to a cave!"},
                 {"TownTP", "You teleported to town!"},
                 {"TownTPNotSet", "Town is currently not set!"},
                 {"TownTPDisabled", "Town is currently not enabled!"},
@@ -665,6 +669,7 @@ namespace Oxide.Plugins
                 Puts("Corrupt config, loading default...");
                 LoadDefaultConfig();
             }
+
             if (!(configData.Version == Version))
             {
                 if (configData.Home.VIPHomesLimits == null)
@@ -697,6 +702,7 @@ namespace Oxide.Plugins
             Admin = dataAdmin.ReadObject<Dictionary<ulong, AdminData>>();
             dataHome = GetFile(nameof(NTeleportation) + "Home");
             Home = dataHome.ReadObject<Dictionary<ulong, HomeData>>();
+
             dataTPR = GetFile(nameof(NTeleportation) + "TPR");
             TPR = dataTPR.ReadObject<Dictionary<ulong, TeleportData>>();
             dataTown = GetFile(nameof(NTeleportation) + "Town");
@@ -741,10 +747,7 @@ namespace Oxide.Plugins
             foreach (var key in configData.Town.VIPDailyLimits.Keys)
                 if (!permission.PermissionExists(key, this)) permission.RegisterPermission(key, this);
 
-            if(configData.Settings.InterruptTPOnMonument == true)
-            {
-                FindMonuments();
-            }
+            FindMonuments();
         }
 
         private DynamicConfigFile GetFile(string name)
@@ -877,23 +880,43 @@ namespace Oxide.Plugins
             PrintMsgL(player, "AdminTPBackSave");
         }
 
+        string RandomString()
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+            List<char> charList = chars.ToList();
+
+            string random = "";
+
+            for (int i = 0; i <= UnityEngine.Random.Range(5, 10); i++)
+                random = random + charList[UnityEngine.Random.Range(0, charList.Count - 1)];
+
+            return random;
+        }
         // Modified from MonumentFinder.cs by PsychoTea
         void FindMonuments()
         {
             foreach (MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
             {
-                if (monument.name.Contains("power_sub") || monument.name.Contains("cave")) continue;
+                if(monument.name.Contains("power_sub")) continue;
                 string name = Regex.Match(monument.name, @"\w{6}\/(.+\/)(.+)\.(.+)").Groups[2].Value.Replace("_", " ").Replace(" 1", "").Titleize();
-                if (monPos.ContainsKey(name)) continue;
-                monPos.Add(name, monument.transform.position);
+                if(monPos.ContainsKey(name)) continue;
+                if(cavePos.ContainsKey(name)) name = name + RandomString();
 
                 var width = monument.Bounds.extents;
-                //var wi = width.ToString();
-                //Puts($"Extent of {name} is {wi}");
-                monSize.Add(name, width);
+                if(monument.name.Contains("cave"))
+                {
+                    cavePos.Add(name, monument.transform.position);
+                }
+                else
+                {
+                    monPos.Add(name, monument.transform.position);
+                    monSize.Add(name, width);
+                }
+
             }
             monPos.OrderBy(x => x.Key);
             monSize.OrderBy(x => x.Key);
+            cavePos.OrderBy(x => x.Key);
         }
 
         [ChatCommand("tp")]
@@ -2597,7 +2620,6 @@ namespace Oxide.Plugins
         {
             var pos = player.transform.position;
             var poss = pos.ToString();
-            //Puts($"Player at {poss}");
 
             foreach(KeyValuePair<string, Vector3> entry in monPos)
             {
@@ -2607,11 +2629,6 @@ namespace Oxide.Plugins
                 monvector.y = pos.y;
                 float dist = Vector3.Distance(pos, monvector);
 
-                //var mpos = monvector.ToString();
-                //var dists = dist.ToString();
-                //var rdists = realdistance.ToString();
-                //Puts($"Checking for monument {monname} at {mpos}, distance {dists} compared to {rdists}...");
-
                 if(dist < realdistance)
                 {
                     return monname;
@@ -2620,6 +2637,39 @@ namespace Oxide.Plugins
             return null;
         }
 
+        private string NearCave(BasePlayer player)
+        {
+            var pos = player.transform.position;
+            var poss = pos.ToString();
+
+            foreach(KeyValuePair<string, Vector3> entry in cavePos)
+            {
+                var cavename = entry.Key;
+                float realdistance = 0f;
+                if(cavename.Contains("Large"))
+                {
+                    realdistance = 75f;
+                }
+                else if(cavename.Contains("Medium"))
+                {
+                    realdistance =  50f;
+                }
+                else
+                {
+                    realdistance = 20f;
+                }
+                var cavevector = entry.Value;
+                cavevector.y = pos.y;
+                var cpos = cavevector.ToString();
+                float dist = Vector3.Distance(pos, cavevector);
+
+                if(dist < realdistance)
+                {
+                    return cavename;
+                }
+            }
+            return null;
+        }
         private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false, bool origin = true)
         {
             var onship = player.GetComponentInParent<CargoShip>();
@@ -2631,7 +2681,17 @@ namespace Oxide.Plugins
             {
                 string monname = NearMonument(player);
                 if(monname != null)
+                {
                     return _("TooCloseToMon", player, monname);
+                }
+            }
+            if(configData.Home.AllowCave == false)
+            {
+                string monname = NearCave(player);
+                if(monname != null)
+                {
+                    return "TooCloseToCave";
+                }
             }
             if(player.isMounted)
                 return "TPMounted";
