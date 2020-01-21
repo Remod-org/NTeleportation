@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.82", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.83", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -3154,6 +3154,7 @@ namespace Oxide.Plugins
                         Config.WriteObject(configData, true);
                         PrintMsgL(player, "BanditTPLocation", configData.Bandit.Location);
                         break;
+                    case "town":
                     default:
                         configData.Town.Location = player.transform.position;
                         Config.WriteObject(configData, true);
@@ -3176,7 +3177,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "BanditTPDisabled");
                 return;
             }
-            else if(!configData.Settings.TownEnabled && command == null)
+            else if(!configData.Settings.TownEnabled && command == "town")
             {
                 PrintMsgL(player, "TownTPDisabled");
                 return;
@@ -3203,7 +3204,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "BanditTPNotSet");
                 return;
             }
-            else if(configData.Town.Location == default(Vector3) && command == null)
+            else if(configData.Town.Location == default(Vector3) && command == "town")
             {
                 PrintMsgL(player, "TownTPNotSet");
                 return;
@@ -3302,6 +3303,7 @@ namespace Oxide.Plugins
                     msgLimitReached = "BanditTPLimitReached";
                     limit = GetHigher(player, configData.Bandit.VIPDailyLimits, configData.Bandit.DailyLimit);
                     break;
+                case "town":
                 default:
                     err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true, "town");
                     if(err != null)
@@ -3564,6 +3566,7 @@ namespace Oxide.Plugins
                     };
                     PrintMsgL(player, "BanditTPStarted", countdown);
                     break;
+                case "town":
                 default:
                     countdown = GetLower(player, configData.Town.VIPCountdowns, configData.Town.Countdown);
                     TeleportTimers[player.userID] = new TeleportTimer
