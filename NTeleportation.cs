@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.76", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.77", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -123,6 +123,7 @@ namespace Oxide.Plugins
             public bool InterruptTPOnMounted { get; set; }
             public bool InterruptTPOnSwimming { get; set; }
             public bool InterruptAboveWater{ get; set; }
+            public bool StrictFoundationCheck { get; set; }
             public float CaveDistanceSmall { get; set; }
             public float CaveDistanceMedium { get; set; }
             public float CaveDistanceLarge { get; set; }
@@ -285,6 +286,7 @@ namespace Oxide.Plugins
                     InterruptTPOnMounted = true,
                     InterruptTPOnSwimming = true,
                     InterruptAboveWater = false,
+                    StrictFoundationCheck = false,
                     CaveDistanceSmall = 40f,
                     CaveDistanceMedium = 60f,
                     CaveDistanceLarge = 100f,
@@ -1277,6 +1279,10 @@ namespace Oxide.Plugins
                         VIPCooldowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } },
                         VIPCountdowns = new Dictionary<string, int> { { ConfigDefaultPermVip, 5 } }
                     };
+                }
+                if(configData.Version < new VersionNumber(1, 0, 77))
+                {
+                    configData.Settings.StrictFoundationCheck = false;
                 }
                 if (configData.Settings.MaximumTemp < 1)
                 {
@@ -4318,6 +4324,35 @@ namespace Oxide.Plugins
             return false;
         }
 
+        // Check that we are near the middle of a block
+        private bool BlockCenter(BaseEntity entity, Vector3 position)
+        {
+            if(!configData.Settings.StrictFoundationCheck)
+            {
+                return true;
+            }
+            Vector3 center = entity.CenterPoint();
+#if DEBUG
+            Puts($"Checking block: {entity.name}: Center: {center.ToString()}, Player: {position.ToString()}");
+#endif
+            if(entity.PrefabName.Contains("triangle.prefab"))
+            {
+                if(Math.Abs(center.x - position.x) < 0.45f && Math.Abs(center.z - position.z) < 0.45f)
+                {
+                    return true;
+                }
+            }
+            else if(entity.PrefabName.Contains("foundation.prefab") || entity.PrefabName.Contains("floor.prefab"))
+            {
+                if(Math.Abs(center.x - position.x) < 0.7f && Math.Abs(center.z - position.z) < 0.7f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private List<BuildingBlock> GetFoundation(Vector3 position)
         {
             RaycastHit hitinfo;
@@ -4326,14 +4361,22 @@ namespace Oxide.Plugins
             if(Physics.Raycast(position, Vector3.down, out hitinfo, 0.1f, blockLayer))
             {
                 var entity = hitinfo.GetEntity();
-                if(!entity.PrefabName.Contains("foundation") || position.y < entity.WorldSpaceBounds().ToBounds().max.y)
+                if(entity.PrefabName.Contains("foundation") || position.y < entity.WorldSpaceBounds().ToBounds().max.y)
                 {
-                    return new List<BuildingBlock>();
+                    if(BlockCenter(entity, position))
+                    {
+#if DEBUG
+                        Puts($"  GetFoundation() found {entity.PrefabName} at {entity.transform.position}");
+#endif
+                        entities.Add(entity as BuildingBlock);
+                    }
                 }
-                else
-                {
-                    entities.Add(entity as BuildingBlock);
-                }
+            }
+            else
+            {
+#if DEBUG
+                Puts("  GetFoundation() none found.");
+#endif
             }
 
             return entities;
@@ -4350,7 +4393,7 @@ namespace Oxide.Plugins
                 if(entity.PrefabName.Contains("floor"))
                 {
 #if DEBUG
-                    Puts($"GetFloor() found {entity.PrefabName} at {entity.transform.position}");
+                    Puts($"  GetFloor() found {entity.PrefabName} at {entity.transform.position}");
 #endif
                     entities.Add(entity as BuildingBlock);
                 }
@@ -4358,7 +4401,7 @@ namespace Oxide.Plugins
             else
             {
 #if DEBUG
-                Puts("GetFloor() none found.");
+                Puts("  GetFloor() none found.");
 #endif
             }
 
@@ -4376,15 +4419,18 @@ namespace Oxide.Plugins
                 if(entity.PrefabName.Contains("floor") || entity.PrefabName.Contains("foundation"))// || position.y < entity.WorldSpaceBounds().ToBounds().max.y))
                 {
 #if DEBUG
-                    Puts($"GetFoundationOrFloor() found {entity.PrefabName} at {entity.transform.position}");
+                    Puts($"  GetFoundationOrFloor() found {entity.PrefabName} at {entity.transform.position}");
 #endif
-                    entities.Add(entity as BuildingBlock);
+                    if(BlockCenter(entity, position))
+                    {
+                        entities.Add(entity as BuildingBlock);
+                    }
                 }
             }
             else
             {
 #if DEBUG
-                Puts("GetFoundationOrFloor() none found.");
+                Puts("  GetFoundationOrFloor() none found.");
 #endif
             }
 
