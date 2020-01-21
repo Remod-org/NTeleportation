@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "Nogrod", "1.0.26", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.27", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -326,6 +326,8 @@ namespace Oxide.Plugins
                 {"TPTargetBuildingBlocked", "You can't teleport in a building blocked zone!"},
                 {"TPTargetInsideBlock", "You can't teleport into a foundation!"},
                 {"TPSwimming", "You can't teleport while swimming!"},
+                {"TPCargoShip", "You can't teleport from the cargo ship!"},
+                {"TPSafeZone", "You can't teleport from a safezone!"},
                 {"TPCrafting", "You can't teleport while crafting!"},
                 {"TPBlockedItem", "You can't teleport while carrying: {0}!"},
                 {"TownTP", "You teleported to town!"},
@@ -2303,6 +2305,7 @@ namespace Oxide.Plugins
 
         private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false)
         {
+            var onship = player.GetComponentInParent<CargoShip>();
             if (!player.IsAlive())
                 return "TPDead";
             if (player.IsWounded())
@@ -2311,6 +2314,10 @@ namespace Oxide.Plugins
                 return "TPBuildingBlocked";
             if (player.IsSwimming())
                 return "TPSwimming";
+            if (onship)
+                return "TPCargoShip";
+            if (player.InSafeZone())
+                 return "TPSafeZone";
             if (!craft && player.inventory.crafting.queue.Count > 0)
                 return "TPCrafting";
             return null;
