@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.77", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.78", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -415,6 +415,7 @@ namespace Oxide.Plugins
                 {"HomeFoundationUnderneathFoundation", "You can't use home on a foundation that is underneath another foundation."},
                 {"HomeFoundationNotFriendsOwned", "You or a friend need to own the house to use home!"},
                 {"HomeRemovedInvalid", "Your home '{0}' was removed because not on a foundation or not owned!"},
+                {"HighWallCollision", "High Wall Collision!"},
                 {"HomeRemovedInsideBlock", "Your home '{0}' was removed because inside a foundation!"},
                 {"HomeRemove", "You have removed your home {0}!"},
                 {"HomeDelete", "You have removed {0}'s home '{1}'!"},
@@ -4324,21 +4325,40 @@ namespace Oxide.Plugins
             return false;
         }
 
-        // Check that we are near the middle of a block
-        private bool BlockCenter(BaseEntity entity, Vector3 position)
+        // Check that we are near the middle of a block.  Also check for high wall overlap
+        private bool ValidBlock(BaseEntity entity, Vector3 position)
         {
             if(!configData.Settings.StrictFoundationCheck)
             {
                 return true;
             }
-            Vector3 center = entity.CenterPoint();
 #if DEBUG
-            Puts($"Checking block: {entity.name}: Center: {center.ToString()}, Player: {position.ToString()}");
+            Puts($"ValidBlock() called for {entity.ShortPrefabName}");
+#endif
+            Vector3 center = entity.CenterPoint();
+
+            List<BaseEntity> ents = new List<BaseEntity>();
+            Vis.Entities<BaseEntity>(center, 1.5f, ents);
+            foreach(BaseEntity wall in ents)
+            {
+                if(wall.name.Contains("external.high"))
+                {
+#if DEBUG
+                    Puts($"    Found: {wall.name} @ center {center.ToString()}, pos {position.ToString()}");
+#endif
+                    return false;
+                }
+            }
+#if DEBUG
+            Puts($"  Checking block: {entity.name} @ center {center.ToString()}, pos: {position.ToString()}");
 #endif
             if(entity.PrefabName.Contains("triangle.prefab"))
             {
                 if(Math.Abs(center.x - position.x) < 0.45f && Math.Abs(center.z - position.z) < 0.45f)
                 {
+#if DEBUG
+                    Puts($"    Found: {entity.ShortPrefabName} @ center: {center.ToString()}, pos: {position.ToString()}");
+#endif
                     return true;
                 }
             }
@@ -4346,6 +4366,9 @@ namespace Oxide.Plugins
             {
                 if(Math.Abs(center.x - position.x) < 0.7f && Math.Abs(center.z - position.z) < 0.7f)
                 {
+#if DEBUG
+                    Puts($"    Found: {entity.ShortPrefabName} @ center: {center.ToString()}, pos: {position.ToString()}");
+#endif
                     return true;
                 }
             }
@@ -4363,7 +4386,7 @@ namespace Oxide.Plugins
                 var entity = hitinfo.GetEntity();
                 if(entity.PrefabName.Contains("foundation") || position.y < entity.WorldSpaceBounds().ToBounds().max.y)
                 {
-                    if(BlockCenter(entity, position))
+                    if(ValidBlock(entity, position))
                     {
 #if DEBUG
                         Puts($"  GetFoundation() found {entity.PrefabName} at {entity.transform.position}");
@@ -4421,7 +4444,7 @@ namespace Oxide.Plugins
 #if DEBUG
                     Puts($"  GetFoundationOrFloor() found {entity.PrefabName} at {entity.transform.position}");
 #endif
-                    if(BlockCenter(entity, position))
+                    if(ValidBlock(entity, position))
                     {
                         entities.Add(entity as BuildingBlock);
                     }
