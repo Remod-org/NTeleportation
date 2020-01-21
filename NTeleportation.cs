@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.61", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.62", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1227,8 +1227,9 @@ namespace Oxide.Plugins
                 {
                     // Only wipe for the brave using this value set to true
                     Puts("Rust was upgraded or map changed - clearing homes!");
-                    Home.Clear();
-                    changedHome = true;
+					// BUG: Disabled in 1.0.62
+                    //Home.Clear();
+                    //changedHome = true;
                 }
                 else
                 {
