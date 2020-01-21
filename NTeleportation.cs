@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.49", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.50", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1796,39 +1796,23 @@ namespace Oxide.Plugins
         {
             if (!IsAllowedMsg(player, PermTpR)) return;
             if (!configData.Settings.TPREnabled) return;
-            if (args.Length < 1)
+            if (args.Length != 1)
             {
                 PrintMsgL(player, "SyntaxCommandTPR");
                 return;
             }
-            BasePlayer target = null;
             var targets = FindPlayersOnline(args[0]);
             if (targets.Count <= 0)
             {
                 PrintMsgL(player, "PlayerNotFound");
                 return;
             }
-            else if (targets.Count > 1 && args.Length < 2)
+            if (targets.Count > 1)
             {
-                PrintMsgL(player, "MultiplePlayers");
-                int i = 0;
-                foreach(var tgt in targets)
-                {
-                    PrintMsgL(player, i.ToString() + ": " + tgt);
-                }
-
+                PrintMsgL(player, "MultiplePlayers", string.Join(", ", targets.ConvertAll(p => p.displayName).ToArray()));
                 return;
             }
-            else if (targets.Count > 1 && args.Length == 2)
-            {
-                int tgtindex = Convert.ToInt32(args[1]);
-                target = targets[tgtindex];
-            }
-            else
-            {
-                target = targets[0];
-            }
-
+            var target = targets[0];
             if (target == player)
             {
                 PrintMsgL(player, "CantTeleportToSelf");
