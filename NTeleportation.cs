@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.56", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.57", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -2320,7 +2320,7 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "TPRCooldownBypass", configData.TPR.Bypass);
                         if(payalso)
                         {
-                            PrintMsgL(player, "PayToTPR", configData.TPR.Pay);
+                            PrintMsgL(player, "PayToTPR", configData.TPR.Bypass);
                         }
                     }
                     else
@@ -2391,19 +2391,7 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "TPBlockedItem", err);
                 return;
             }
-            if(UseEconomy())
-            {
-                if (configData.TPR.Pay > 0 && !CheckEconomy(player, configData.TPR.Pay))
-                {
-                    PrintMsgL(player, "TPNoMoney", configData.TPR.Pay);
-                    return;
-                }
-                else if(configData.TPR.Pay > 0)
-                {
-                    var w = CheckEconomy(player, (double)configData.TPR.Pay, true);
-                    PrintMsgL(player, "TPMoney", (double)configData.TPR.Pay);
-                }
-            }
+
             PlayersRequests[player.userID] = target;
             PlayersRequests[target.userID] = player;
             PendingRequests[target.userID] = timer.Once(configData.TPR.RequestDuration, () => { RequestTimedOut(player, target); });
