@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.32", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.33", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -337,6 +337,7 @@ namespace Oxide.Plugins
                 {"TPRTarget", "Your target is currently not available!"},
                 {"TPDead", "You can't teleport while being dead!"},
                 {"TPWounded", "You can't teleport while being wounded!"},
+                {"TPMounted", "You can't teleport while seated!"},
                 {"TPBuildingBlocked", "You can't teleport while in a building blocked zone!"},
                 {"TPTargetBuildingBlocked", "You can't teleport in a building blocked zone!"},
                 {"TPTargetInsideBlock", "You can't teleport into a foundation!"},
@@ -2481,6 +2482,8 @@ namespace Oxide.Plugins
         {
             var onship = player.GetComponentInParent<CargoShip>();
             var onballoon = player.GetComponentInParent<HotAirBalloon>();
+            if (player.isMounted)
+                return "TPMounted";
             if (!player.IsAlive())
                 return "TPDead";
             if (player.IsWounded())
