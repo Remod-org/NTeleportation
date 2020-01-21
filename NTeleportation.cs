@@ -17,7 +17,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.40", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.41", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -2589,7 +2589,7 @@ namespace Oxide.Plugins
         {
             var pos = player.transform.position;
             var poss = pos.ToString();
-            Puts($"Player at {poss}");
+            //Puts($"Player at {poss}");
 
             foreach(KeyValuePair<string, Vector3> entry in monPos)
             {
@@ -2602,7 +2602,7 @@ namespace Oxide.Plugins
                 var dists = dist.ToString();
                 var rdists = realdistance.ToString();
 
-                Puts($"Checking for monument {monname} at {mpos}, distance {dists} compared to {rdists}...");
+                //Puts($"Checking for monument {monname} at {mpos}, distance {dists} compared to {rdists}...");
                 if(dist < realdistance)
                 {
                     return monname;
