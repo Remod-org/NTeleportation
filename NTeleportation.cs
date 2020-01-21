@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.71", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.72", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1252,6 +1252,8 @@ namespace Oxide.Plugins
                 {
                     configData.Settings.AutoGenOutpost = false;
                     configData.Settings.AutoGenBandit  = false;
+                    configData.Settings.OutpostEnabled = false;
+                    configData.Settings.BanditEnabled  = false;
 
                     configData.Outpost = new TownData
                     {
@@ -1560,6 +1562,7 @@ namespace Oxide.Plugins
             return random;
         }
         // Modified from MonumentFinder.cs by PsychoTea
+        bool setextra = false;
         void FindMonuments()
         {
             foreach (MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
@@ -1584,7 +1587,6 @@ namespace Oxide.Plugins
                 Puts($"Found {name}");
 #endif
                 var width = monument.Bounds.extents;
-                bool setextra = false;
                 if(monument.name.Contains("cave"))
                 {
 #if DEBUG
@@ -1592,21 +1594,48 @@ namespace Oxide.Plugins
 #endif
                     cavePos.Add(name, monument.transform.position);
                 }
-                else if(monument.name.Contains("ompound") && configData.Settings.AutoGenOutpost)
+                else if(monument.name.Contains("compound") && configData.Settings.AutoGenOutpost)
                 {
 #if DEBUG
                     Puts("  Adding Outpost target");
 #endif
-                    configData.Outpost.Location =  monument.transform.position + new Vector3(10, 0, 10);
-                    setextra = true;
+                    List<BaseEntity> ents = new List<BaseEntity>();
+                    Vis.Entities<BaseEntity>(monument.transform.position, 50, ents);
+                    foreach(BaseEntity entity in ents)
+                    {
+                        if(entity.PrefabName.Contains("piano"))
+                        {
+                            configData.Outpost.Location = entity.transform.position + new Vector3(1f, 0.1f, 1f);
+                            setextra = true;
+                        }
+                    }
                 }
-                else if(monument.name.Contains("andit") && configData.Settings.AutoGenBandit)
+                else if(monument.name.Contains("bandit") && configData.Settings.AutoGenBandit)
                 {
 #if DEBUG
                     Puts("  Adding BanditTown target");
 #endif
-                    configData.Bandit.Location =  monument.transform.position + new Vector3(30, 0, 30);
-                    setextra = true;
+                    List<BaseEntity> ents = new List<BaseEntity>();
+                    Vis.Entities<BaseEntity>(monument.transform.position, 50, ents);
+                    Vector3 b = new Vector3(0,0,0);
+                    Vector3 r = new Vector3(0,0,0);
+                    foreach(BaseEntity entity in ents)
+                    {
+                        if(entity.PrefabName.Contains("workbench") && b == Vector3.zero)
+                        {
+                            b = entity.transform.position;
+                        }
+                        else if(entity.PrefabName.Contains("repair") && r == Vector3.zero)
+                        {
+                            r = entity.transform.position;
+                        }
+                        else if(b != Vector3.zero && r != Vector3.zero && Math.Round(b.z, 1) == Math.Round(r.z, 1))
+                        {
+                            configData.Bandit.Location = b + new Vector3(-1f, 0.1f, -1f);
+                            setextra = true;
+                            break;
+                        }
+                    }
                 }
                 else
                 {
@@ -1621,6 +1650,11 @@ namespace Oxide.Plugins
             monPos.OrderBy(x => x.Key);
             monSize.OrderBy(x => x.Key);
             cavePos.OrderBy(x => x.Key);
+            if(setextra)
+            {
+                // Write config so that the outpost and bandit autogen locations are available immediately.
+                Config.WriteObject(configData, true);
+            }
         }
 
         [ChatCommand("tp")]
@@ -2030,7 +2064,7 @@ namespace Oxide.Plugins
                 {
                     if (Vector3.Distance(player.transform.position, location.Value) <= radius)
                     {
-                        if (CheckFoundation(homeData.Key, location.Value) != null)
+                        if(CheckFoundation(homeData.Key, location.Value) != null)
                         {
                             toRemove.Add(location.Key);
                             continue;
@@ -3083,42 +3117,112 @@ namespace Oxide.Plugins
                 return;
             }
 
-            string err = null;
-#if DEBUG
-            Puts("Calling CheckPlayer from cmdChatTown");
-#endif
-            switch(command)
-            {
-                case "outpost":
-                    err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true, "town");
-                    break;
-                case "bandit":
-                    err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true, "town");
-                    break;
-                default:
-                    err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true, "town");
-                    break;
-            }
-            if (err != null)
-            {
-                PrintMsgL(player, err);
-                return;
-            }
-            TeleportData teleportData;
-            if (!Town.TryGetValue(player.userID, out teleportData))
-                Town[player.userID] = teleportData = new TeleportData();
+            TeleportData teleportData = new TeleportData();;
             var timestamp = Facepunch.Math.Epoch.Current;
             var currentDate = DateTime.Now.ToString("d");
-            if (teleportData.Date != currentDate)
+            if(teleportData.Date != currentDate)
             {
                 teleportData.Amount = 0;
                 teleportData.Date = currentDate;
             }
-            var cooldown = GetLower(player, configData.Town.VIPCooldowns, configData.Town.Cooldown);
-            if (cooldown > 0 && timestamp - teleportData.Timestamp < cooldown)
+
+            string err = null;
+            int cooldown = 0;
+            int limit = 0;
+            int targetPay = 0;
+            int targetBypass = 0;
+            string msgPay = null;
+            string msgCooldown = null;
+            string msgCooldownBypass  = null;
+            string msgCooldownBypassF = null;
+            string msgCooldownBypassP = null;
+            string msgCooldownBypassP2 = null;
+            string msgLimitReached = null;
+#if DEBUG
+            Puts("Calling CheckPlayer from cmdChatTown");
+#endif
+            // Setup vars for checks below
+            switch(command)
+            {
+                case "outpost":
+                    err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true, "outpost");
+                    if(err != null)
+                    {
+                        PrintMsgL(player, err);
+                        return;
+                    }
+                    cooldown = GetLower(player, configData.Outpost.VIPCooldowns, configData.Outpost.Cooldown);
+                    if(!Outpost.TryGetValue(player.userID, out teleportData))
+                    {
+                        Outpost[player.userID] = teleportData = new TeleportData();
+                    }
+                    targetPay = configData.Outpost.Pay;
+                    targetBypass = configData.Outpost.Bypass;
+
+                    msgPay = "PayToOutpost";
+                    msgCooldown = "OutpostTPCooldown";
+                    msgCooldownBypass = "OutpostTPCooldownBypass";
+                    msgCooldownBypassF = "OutpostTPCooldownBypassF";
+                    msgCooldownBypassP = "OutpostTPCooldownBypassP";
+                    msgCooldownBypassP2 = "OutpostTPCooldownBypassP2";
+                    msgLimitReached = "OutpostTPLimitReached";
+                    limit = GetHigher(player, configData.Outpost.VIPCooldowns, configData.Outpost.DailyLimit);
+                    break;
+                case "bandit":
+                    err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true, "bandit");
+                    if(err != null)
+                    {
+                        PrintMsgL(player, err);
+                        return;
+                    }
+                    cooldown = GetLower(player, configData.Bandit.VIPCooldowns, configData.Bandit.Cooldown);
+                    if(!Bandit.TryGetValue(player.userID, out teleportData))
+                    {
+                        Bandit[player.userID] = teleportData = new TeleportData();
+                    }
+                    targetPay = configData.Bandit.Pay;
+                    targetBypass = configData.Bandit.Bypass;
+
+                    msgPay = "PayToBandit";
+                    msgCooldown = "BanditTPCooldown";
+                    msgCooldownBypass = "BanditTPCooldownBypass";
+                    msgCooldownBypassF = "BanditTPCooldownBypassF";
+                    msgCooldownBypassP = "BanditTPCooldownBypassP";
+                    msgCooldownBypassP2 = "BanditTPCooldownBypassP2";
+                    msgLimitReached = "BanditTPLimitReached";
+                    limit = GetHigher(player, configData.Bandit.VIPCooldowns, configData.Bandit.DailyLimit);
+                    break;
+                default:
+                    err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true, "town");
+                    if(err != null)
+                    {
+                        PrintMsgL(player, err);
+                        return;
+                    }
+                    cooldown = GetLower(player, configData.Town.VIPCooldowns, configData.Town.Cooldown);
+                    if(!Town.TryGetValue(player.userID, out teleportData))
+                    {
+                        Town[player.userID] = teleportData = new TeleportData();
+                    }
+                    targetPay = configData.Town.Pay;
+                    targetBypass = configData.Town.Bypass;
+
+                    msgPay = "PayToTown";
+                    msgCooldown = "TownTPCooldown";
+                    msgCooldownBypass = "TownTPCooldownBypass";
+                    msgCooldownBypassF = "TownTPCooldownBypassF";
+                    msgCooldownBypassP = "TownTPCooldownBypassP";
+                    msgCooldownBypassP2 = "TownTPCooldownBypassP2";
+                    msgLimitReached = "TownTPLimitReached";
+                    limit = GetHigher(player, configData.Town.VIPCooldowns, configData.Town.DailyLimit);
+                    break;
+            }
+
+            // Check and process cooldown, bypass, and payment for all modes
+            if(cooldown > 0 && timestamp - teleportData.Timestamp < cooldown)
             {
                 var cmdSent = "";
-                bool foundmoney = CheckEconomy(player, configData.Town.Bypass);
+                bool foundmoney = CheckEconomy(player, targetBypass);
                 try
                 {
                     cmdSent = args[0].ToLower();
@@ -3126,7 +3230,7 @@ namespace Oxide.Plugins
                 catch {}
 
                 bool payalso = false;
-                if(configData.Town.Pay > 0)
+                if(targetPay > 0)
                 {
                     payalso = true;
                 }
@@ -3134,58 +3238,57 @@ namespace Oxide.Plugins
                 {
                     if(foundmoney == true)
                     {
-                        CheckEconomy(player, configData.Town.Bypass, true);
+                        CheckEconomy(player, targetBypass, true);
                         paidmoney = true;
-                        PrintMsgL(player, "TownTPCooldownBypass", configData.Town.Bypass);
+                        PrintMsgL(player, msgCooldownBypass, targetBypass);
                         if(payalso)
                         {
-                            PrintMsgL(player, "PayToTown", configData.Town.Pay);
+                            PrintMsgL(player, msgPay, targetPay);
                         }
                     }
                     else
                     {
-                        PrintMsgL(player, "TownTPCooldownBypassF", configData.Town.Bypass);
+                        PrintMsgL(player, msgCooldownBypassF, targetBypass);
                         return;
                     }
                 }
                 else if(UseEconomy())
                 {
                     var remain = cooldown - (timestamp - teleportData.Timestamp);
-                    PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
-                    if(configData.Town.Bypass > 0 && configData.Settings.BypassCMD != null)
+                    PrintMsgL(player, msgCooldown, FormatTime(remain));
+                    if(targetBypass > 0 && configData.Settings.BypassCMD != null)
                     {
-                        PrintMsgL(player, "TownTPCooldownBypassP", configData.Town.Bypass);
-                        PrintMsgL(player, "TownTPCooldownBypassP2", configData.Settings.BypassCMD);
+                        PrintMsgL(player, msgCooldownBypassP, targetBypass);
+                        PrintMsgL(player, msgCooldownBypassP2, configData.Settings.BypassCMD);
                     }
                     return;
                 }
                 else
                 {
                     var remain = cooldown - (timestamp - teleportData.Timestamp);
-                    PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
+                    PrintMsgL(player, msgCooldown, FormatTime(remain));
                     return;
                 }
             }
 
-            var limit = GetHigher(player, configData.Town.VIPDailyLimits, configData.Town.DailyLimit);
-            if (limit > 0 && teleportData.Amount >= limit)
+            if(limit > 0 && teleportData.Amount >= limit)
             {
-                PrintMsgL(player, "TownTPLimitReached", limit);
+                PrintMsgL(player, msgLimitReached, limit);
                 return;
             }
-            if (TeleportTimers.ContainsKey(player.userID))
+            if(TeleportTimers.ContainsKey(player.userID))
             {
                 PrintMsgL(player, "TeleportPending");
                 return;
             }
             err = CanPlayerTeleport(player);
-            if (err != null)
+            if(err != null)
             {
                 SendReply(player, err);
                 return;
             }
             err = CheckItems(player);
-            if (err != null)
+            if(err != null)
             {
                 PrintMsgL(player, "TPBlockedItem", err);
                 return;
@@ -3204,7 +3307,7 @@ namespace Oxide.Plugins
 #if DEBUG
                             Puts("Calling CheckPlayer from cmdChatTown outpost timer loop");
 #endif
-                            err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true, "town");
+                            err = CheckPlayer(player, configData.Outpost.UsableOutOfBuildingBlocked, CanCraftOutpost(player), true, "outpost");
                             if (err != null)
                             {
                                 PrintMsgL(player, "Interrupted");
@@ -3280,7 +3383,7 @@ namespace Oxide.Plugins
 #if DEBUG
                             Puts("Calling CheckPlayer from cmdChatTown bandit timer loop");
 #endif
-                            err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true, "town");
+                            err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true, "bandit");
                             if (err != null)
                             {
                                 PrintMsgL(player, "Interrupted");
@@ -3823,7 +3926,10 @@ namespace Oxide.Plugins
                 }
             }
             bool allowcave = true;
+
+#if DEBUG
             Puts($"CheckPlayer(): called mode is {mode}");
+#endif
             switch(mode)
             {
                 case "home":
@@ -3832,6 +3938,8 @@ namespace Oxide.Plugins
                 case "tpa":
                 case "tpr":
                 case "town":
+                case "outpost":
+                case "bandit":
                 default:
 #if DEBUG
                     Puts("Skipping cave check...");
@@ -4064,40 +4172,46 @@ namespace Oxide.Plugins
 
         private string CheckFoundation(ulong userID, Vector3 position)
         {
-            if (UnderneathFoundation(position))
+            if(!configData.Home.ForceOnTopOfFoundation) return null; // Foundation/floor not required
+            if(UnderneathFoundation(position))
             {
                 return "HomeFoundationUnderneathFoundation";
             }
 
             var entities = new List<BuildingBlock>();
-            if(configData.Home.ForceOnTopOfFoundation)
-            {
-                entities = GetFoundation(position);
-            }
-            else
+            if(configData.Home.AllowAboveFoundation) // Can set on a foundation or floor
             {
 #if DEBUG
                 Puts($"CheckFoundation() looking for foundation or floor at {position.ToString()}");
 #endif
                 entities = GetFoundationOrFloor(position);
             }
+            else // Can only use foundation, not floor/ceiling
+            {
+#if DEBUG
+                Puts($"CheckFoundation() looking for foundation at {position.ToString()}");
+#endif
+                entities = GetFoundation(position);
+            }
 
-            if (entities.Count == 0)
-                return "HomeNoFoundation";
+            if(entities.Count == 0) return "HomeNoFoundation";
 
-            if (!configData.Home.CheckFoundationForOwner) return null;
-            for (var i = 0; i < entities.Count; i++)
-                if (entities[i].OwnerID == userID) return null;
-            if (!configData.Home.UseFriends)
-                return "HomeFoundationNotOwned";
+            if(!configData.Home.CheckFoundationForOwner) return null;
+            for(var i = 0; i < entities.Count; i++)
+            {
+                if(entities[i].OwnerID == userID) return null;
+            }
+            if (!configData.Home.UseFriends) return "HomeFoundationNotOwned";
 
             var moderator = (bool)(Clans?.CallHook("IsModerator", userID) ?? false);
             var userIdString = userID.ToString();
-            for (var i = 0; i < entities.Count; i++)
+            for(var i = 0; i < entities.Count; i++)
             {
                 var entity = entities[i];
-                if ((bool)(Friends?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) || (bool)(Clans?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) && moderator || (bool)(RustIO?.CallHook("HasFriend", entity.OwnerID.ToString(), userIdString) ?? false))
+                if((bool)(Friends?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) || (bool)(Clans?.CallHook("HasFriend", entity.OwnerID, userID) ?? false) && moderator || (bool)(RustIO?.CallHook("HasFriend", entity.OwnerID.ToString(), userIdString) ?? false))
+                {
                     return null;
+                }
             }
 
             return "HomeFoundationNotFriendsOwned";
@@ -4550,41 +4664,53 @@ namespace Oxide.Plugins
                 case "town":
                     limit = GetHigher(player, configData.Town.VIPDailyLimits, configData.Town.DailyLimit);
                     TeleportData townData;
-                    if (!Town.TryGetValue(player.userID, out townData))
+                    if(!Town.TryGetValue(player.userID, out townData))
+                    {
                         Town[player.userID] = townData = new TeleportData();
-                    if (townData.Date != currentDate)
+                    }
+                    if(townData.Date != currentDate)
                     {
                         townData.Amount = 0;
                         townData.Date = currentDate;
                     }
-                    if (limit > 0)
+                    if(limit > 0)
+                    {
                         remaining = limit - townData.Amount;
+                    }
                     break;
                 case "outpost":
-                    limit = GetHigher(player, configData.Town.VIPDailyLimits, configData.Town.DailyLimit);
+                    limit = GetHigher(player, configData.Outpost.VIPDailyLimits, configData.Outpost.DailyLimit);
                     TeleportData outpostData;
-                    if (!Town.TryGetValue(player.userID, out outpostData))
-                        Town[player.userID] = outpostData = new TeleportData();
-                    if (outpostData.Date != currentDate)
+                    if(!Outpost.TryGetValue(player.userID, out outpostData))
+                    {
+                        Outpost[player.userID] = outpostData = new TeleportData();
+                    }
+                    if(outpostData.Date != currentDate)
                     {
                         outpostData.Amount = 0;
                         outpostData.Date = currentDate;
                     }
-                    if (limit > 0)
+                    if(limit > 0)
+                    {
                         remaining = limit - outpostData.Amount;
+                    }
                     break;
                 case "bandit":
-                    limit = GetHigher(player, configData.Town.VIPDailyLimits, configData.Town.DailyLimit);
+                    limit = GetHigher(player, configData.Bandit.VIPDailyLimits, configData.Bandit.DailyLimit);
                     TeleportData banditData;
-                    if (!Town.TryGetValue(player.userID, out banditData))
-                        Town[player.userID] = banditData = new TeleportData();
-                    if (banditData.Date != currentDate)
+                    if(!Bandit.TryGetValue(player.userID, out banditData))
+                    {
+                        Bandit[player.userID] = banditData = new TeleportData();
+                    }
+                    if(banditData.Date != currentDate)
                     {
                         banditData.Amount = 0;
                         banditData.Date = currentDate;
                     }
-                    if (limit > 0)
+                    if(limit > 0)
+                    {
                         remaining = limit - banditData.Amount;
+                    }
                     break;
                 case "tpr":
                     limit = GetHigher(player, configData.TPR.VIPDailyLimits, configData.TPR.DailyLimit);
