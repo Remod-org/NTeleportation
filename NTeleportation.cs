@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.27", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.28", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -83,6 +83,7 @@ namespace Oxide.Plugins
             public bool TownEnabled { get; set; }
             public bool InterruptTPOnHurt { get; set; }
             public Dictionary<string, string> BlockedItems { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            public string BypassCMD { get; set; }
         }
 
         class AdminSettingsData
@@ -116,6 +117,7 @@ namespace Oxide.Plugins
             public bool AllowAboveFoundation { get; set; }
             public bool CheckValidOnList { get; set; }
             public int Pay { get; set; }
+            public int Bypass { get; set; }
         }
 
         class TPRData
@@ -133,6 +135,7 @@ namespace Oxide.Plugins
             public bool CupOwnerAllowOnBuildingBlocked { get; set; }
             public bool AllowCraft { get; set; }
             public int Pay { get; set; }
+            public int Bypass { get; set; }
         }
 
         class TownData
@@ -147,6 +150,7 @@ namespace Oxide.Plugins
             public bool UsableOutOfBuildingBlocked { get; set; }
             public bool AllowCraft { get; set; }
             public int Pay { get; set; }
+            public int Bypass { get; set; }
         }
 
         class AdminData
@@ -198,7 +202,8 @@ namespace Oxide.Plugins
                     HomesEnabled = true,
                     TPREnabled = true,
                     TownEnabled = true,
-                    InterruptTPOnHurt = true
+                    InterruptTPOnHurt = true,
+                    BypassCMD = "pay"
                 },
                 Admin = new AdminSettingsData
                 {
@@ -291,6 +296,10 @@ namespace Oxide.Plugins
                 {"HomeQuota", "You have set {0} of the maximum {1} homes!"},
                 {"HomeTPStarted", "Teleporting to your home {0} in {1} seconds!"},
                 {"HomeTPCooldown", "Your teleport is currently on cooldown. You'll have to wait {0} for your next teleport."},
+                {"HomeTPCooldownBypass", "Your teleport was currently on cooldown. You chose to bypass that by paying {0} from your balance."},
+                {"HomeTPCooldownBypassF", "Your teleport is currently on cooldown. You do not have sufficient funds - {0} - to bypass."},
+                {"HomeTPCooldownBypassP", "You may choose to pay {0} to bypass this cooldown." },
+                {"HomeTPCooldownBypassP2", "Type /home NAME {0}." },
                 {"HomeTPLimitReached", "You have reached the daily limit of {0} teleports today!"},
                 {"HomeTPAmount", "You have {0} home teleports left today!"},
                 {"HomesListWiped", "You have wiped all the saved home locations!"},
@@ -317,6 +326,10 @@ namespace Oxide.Plugins
                 {"TimedOutTarget", "You did not answer {0}'s teleport request in time!"},
                 {"TargetDisconnected", "{0} has disconnected, your teleport was cancelled!"},
                 {"TPRCooldown", "Your teleport requests are currently on cooldown. You'll have to wait {0} to send your next teleport request."},
+                {"TPRCooldownBypass", "Your teleport request was on cooldown. You chose to bypass that by paying {0} from your balance."},
+                {"TPRCooldownBypassF", "Your teleport is currently on cooldown. You do not have sufficient funds - {0} - to bypass."},
+                {"TPRCooldownBypassP", "You may choose to pay {0} to bypass this cooldown." },
+                {"TPRCooldownBypassP2", "Type /tpr {0}." },
                 {"TPRLimitReached", "You have reached the daily limit of {0} teleport requests today!"},
                 {"TPRAmount", "You have {0} teleport requests left today!"},
                 {"TPRTarget", "Your target is currently not available!"},
@@ -335,6 +348,10 @@ namespace Oxide.Plugins
                 {"TownTPLocation", "You have set the town location set to {0}!"},
                 {"TownTPStarted", "Teleporting to town in {0} seconds!"},
                 {"TownTPCooldown", "Your teleport is currently on cooldown. You'll have to wait {0} for your next teleport."},
+                {"TownTPCooldownBypass", "Your teleport request was on cooldown. You chose to bypass that by paying {0} from your balance."},
+                {"TownTPCooldownBypassF", "Your teleport is currently on cooldown. You do not have sufficient funds - {0} - to bypass."},
+                {"TownTPCooldownBypassP", "You may choose to pay {0} to bypass this cooldown." },
+                {"TownTPCooldownBypassP2", "Type /town {0}." },
                 {"TownTPLimitReached", "You have reached the daily limit of {0} teleports today!"},
                 {"TownTPAmount", "You have {0} town teleports left today!"},
                 {"Interrupted", "Your teleport was interrupted!"},
@@ -507,6 +524,7 @@ namespace Oxide.Plugins
                         "A Syntax Error Occurred!",
                         "You can only use the /home command as follows:",
                         "/home \"name\" - Teleports yourself to your home with the name 'name'.",
+                        "/home \"name\" pay - Teleports yourself to your home with the name 'name', avoiding cooldown by paying for it.",
                         "/home add \"name\" - Saves the current location as your home with the name 'name'.",
                         "/home list - Shows you a list of all your saved home locations.",
                         "/home remove \"name\" - Removes the home location with the name 'name'."
@@ -526,7 +544,8 @@ namespace Oxide.Plugins
                     {
                         "A Syntax Error Occurred!",
                         "You can only use the /town command as follows:",
-                        "/town - Teleports yourself to town."
+                        "/town - Teleports yourself to town.",
+                        "/town pay - Teleports yourself to town, paying the penalty."
                     })
                 },
                 {
@@ -1289,7 +1308,7 @@ namespace Oxide.Plugins
         private void cmdChatHomeTP(BasePlayer player, string command, string[] args)
         {
             if (!configData.Settings.HomesEnabled) return;
-            if (args.Length != 1)
+            if (args.Length < 1)
             {
                 PrintMsgL(player, "SyntaxCommandHome");
                 return;
@@ -1336,11 +1355,36 @@ namespace Oxide.Plugins
                 homeData.Teleports.Date = currentDate;
             }
             var cooldown = GetLower(player, configData.Home.VIPCooldowns, configData.Home.Cooldown);
+
             if (cooldown > 0 && timestamp - homeData.Teleports.Timestamp < cooldown)
             {
-                var remain = cooldown - (timestamp - homeData.Teleports.Timestamp);
-                PrintMsgL(player, "HomeTPCooldown", FormatTime(remain));
-                return;
+                try
+                {
+                    if (args[1].ToLower().Equals(configData.Settings.BypassCMD))
+                    {
+                        if (configData.Home.Bypass > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) > configData.Home.Bypass)
+                        {
+                            var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Home.Bypass);
+                            PrintMsgL(player, "HomeTPCooldownBypass", configData.Home.Bypass);
+                        }
+                        else
+                        {
+                            PrintMsgL(player, "HomeTPCooldownBypassF", configData.Home.Bypass);
+                            return;
+                        }
+                    }
+                }
+                catch
+                {
+                    var remain = cooldown - (timestamp - homeData.Teleports.Timestamp);
+                    PrintMsgL(player, "HomeTPCooldown", FormatTime(remain));
+                    if(configData.Home.Bypass > 0 && configData.Settings.BypassCMD != null)
+                    {
+                        PrintMsgL(player, "HomeTPCooldownBypassP", configData.Home.Bypass);
+                        PrintMsgL(player, "HomeTPCooldownBypassP2", configData.Settings.BypassCMD);
+                    }
+                    return;
+                }
             }
             var limit = GetHigher(player, configData.Home.VIPDailyLimits, configData.Home.DailyLimit);
             if (limit > 0 && homeData.Teleports.Amount >= limit)
@@ -1562,12 +1606,37 @@ namespace Oxide.Plugins
                 tprData.Amount = 0;
                 tprData.Date = currentDate;
             }
+
             var cooldown = GetLower(player, configData.TPR.VIPCooldowns, configData.TPR.Cooldown);
             if (cooldown > 0 && timestamp - tprData.Timestamp < cooldown)
             {
-                var remain = cooldown - (timestamp - tprData.Timestamp);
-                PrintMsgL(player, "TPRCooldown", FormatTime(remain));
-                return;
+                try
+                {
+                    if (args[1].ToLower().Equals(configData.Settings.BypassCMD))
+                    {
+                        if (configData.TPR.Bypass > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) > configData.TPR.Bypass)
+                        {
+                            var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.TPR.Bypass);
+                            PrintMsgL(player, "TPRCooldownBypass", configData.TPR.Bypass);
+                        }
+                        else
+                        {
+                            PrintMsgL(player, "TPRCooldownBypassF", configData.TPR.Bypass);
+                            return;
+                        }
+                    }
+                }
+                catch
+                {
+                    var remain = cooldown - (timestamp - tprData.Timestamp);
+                    PrintMsgL(player, "TPRCooldown", FormatTime(remain));
+                    if(configData.TPR.Bypass > 0 && configData.Settings.BypassCMD != null)
+                    {
+                        PrintMsgL(player, "TPRCooldownBypassP", configData.TPR.Bypass);
+                        PrintMsgL(player, "TPRCooldownBypassP2", configData.Settings.BypassCMD);
+                    }
+                    return;
+                }
             }
             var limit = GetHigher(player, configData.TPR.VIPDailyLimits, configData.TPR.DailyLimit);
             if (limit > 0 && tprData.Amount >= limit)
@@ -1850,6 +1919,8 @@ namespace Oxide.Plugins
                         {
                             var remain = cooldown - (timestamp - teleportData.Timestamp);
                             PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
+                            PrintMsgL(player, "TownTPCooldownBypassP", configData.Town.Bypass);
+                            PrintMsgL(player, "TownTPCooldownBypassP2", configData.Settings.BypassCMD);
                         }
                         break;
                     default:
@@ -1927,6 +1998,7 @@ namespace Oxide.Plugins
         private void cmdChatTown(BasePlayer player, string command, string[] args)
         {
             if (!IsAllowedMsg(player, PermTpTown)) return;
+
             if (args.Length == 1 && IsAllowed(player) && args[0].ToLower().Equals("set"))
             {
                 configData.Town.Location = player.transform.position;
@@ -1934,12 +2006,13 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "TownTPLocation", configData.Town.Location);
                 return;
             }
-            if (args.Length != 0)
+            if (args.Length == 1 && (args[0].ToLower() != configData.Settings.BypassCMD.ToLower()))
             {
                 PrintMsgL(player, "SyntaxCommandTown");
                 if (IsAllowed(player)) PrintMsgL(player, "SyntaxCommandTownAdmin");
                 return;
             }
+
             if (configData.Town.Location == default(Vector3))
             {
                 PrintMsgL(player, "TownTPNotSet");
@@ -1964,10 +2037,35 @@ namespace Oxide.Plugins
             var cooldown = GetLower(player, configData.Town.VIPCooldowns, configData.Town.Cooldown);
             if (cooldown > 0 && timestamp - teleportData.Timestamp < cooldown)
             {
-                var remain = cooldown - (timestamp - teleportData.Timestamp);
-                PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
-                return;
+                try
+                {
+                    if (args[0].ToLower().Equals(configData.Settings.BypassCMD))
+                    {
+                        if (configData.Town.Bypass > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) > configData.Town.Bypass)
+                        {
+                            var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Town.Bypass);
+                            PrintMsgL(player, "TownTPCooldownBypass", configData.Town.Bypass);
+                        }
+                        else
+                        {
+                            PrintMsgL(player, "TownTPCooldownBypassF", configData.Town.Bypass);
+                            return;
+                        }
+                    }
+                }
+                catch
+                {
+                    var remain = cooldown - (timestamp - teleportData.Timestamp);
+                    PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
+                    if(configData.Town.Bypass > 0 && configData.Settings.BypassCMD != null)
+                    {
+                        PrintMsgL(player, "TownTPCooldownBypassP", configData.Town.Bypass);
+                        PrintMsgL(player, "TownTPCooldownBypassP2", configData.Settings.BypassCMD);
+                    }
+                    return;
+                }
             }
+
             var limit = GetHigher(player, configData.Town.VIPDailyLimits, configData.Town.DailyLimit);
             if (limit > 0 && teleportData.Amount >= limit)
             {
@@ -2317,7 +2415,7 @@ namespace Oxide.Plugins
             if (onship)
                 return "TPCargoShip";
             if (player.InSafeZone())
-                 return "TPSafeZone";
+                return "TPSafeZone";
             if (!craft && player.inventory.crafting.queue.Count > 0)
                 return "TPCrafting";
             return null;
