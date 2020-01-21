@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.73", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.74", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1449,6 +1449,46 @@ namespace Oxide.Plugins
         void OnServerShutdown() => OnServerSave();
 
         void Unload() => OnServerSave();
+
+        void OnPluginLoaded(Plugin plugin)
+        {
+            if(plugin.Name == "Economics")
+            {
+                Economics = plugin;
+            }
+            if(plugin.Name == "ServerRewards")
+            {
+                ServerRewards = plugin;
+            }
+            if(plugin.Name == "Friends")
+            {
+                Friends = plugin;
+            }
+            if(plugin.Name == "Clans")
+            {
+                Clans = plugin;
+            }
+        }
+
+        void OnPluginUnloaded(Plugin plugin)
+        {
+            if(plugin.Name == "Economics")
+            {
+                Economics = null;
+            }
+            if(plugin.Name == "ServerRewards")
+            {
+                ServerRewards = null;
+            }
+            if(plugin.Name == "Friends")
+            {
+                Friends = null;
+            }
+            if(plugin.Name == "Clans")
+            {
+                Clans = null;
+            }
+        }
 
         void OnEntityTakeDamage(BaseCombatEntity entity, HitInfo hitinfo)
         {
@@ -4227,7 +4267,7 @@ namespace Oxide.Plugins
 #if DEBUG
                 Puts("Checking Friends...");
 #endif
-                var fr = Friends.CallHook("AreFriends", friendid, playerid);
+                var fr = Friends?.CallHook("AreFriends", friendid, playerid);
                 if(fr != null && (bool)fr)
                 {
 #if DEBUG
