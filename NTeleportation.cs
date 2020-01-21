@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.55", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.56", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1409,8 +1409,12 @@ namespace Oxide.Plugins
                     if (target == null) return;
                     if (target == player)
                     {
+#if DEBUG
+                        Puts("Debug mode - allowing self teleport.");
+#else
                         PrintMsgL(player, "CantTeleportToSelf");
                         return;
+#endif
                     }
                     player.SetParent(null, true, true);
 //                    if(player.isMounted)
@@ -1501,8 +1505,12 @@ namespace Oxide.Plugins
                     if (target == null) return;
                     if (target == player)
                     {
+#if DEBUG
+                        Puts("Debug mode - allowing self teleport.");
+#else
                         PrintMsgL(player, "CantTeleportToSelf");
                         return;
+#endif
                     }
                     int distance;
                     if (args.Length != 2 || !int.TryParse(args[1], out distance))
@@ -2258,8 +2266,12 @@ namespace Oxide.Plugins
             var target = targets[0];
             if (target == player)
             {
+#if DEBUG
+                Puts("Debug mode - allowing self teleport.");
+#else
                 PrintMsgL(player, "CantTeleportToSelf");
                 return;
+#endif
             }
             var err = CheckPlayer(player, configData.TPR.UsableOutOfBuildingBlocked, CanCraftTPR(player), true);
             if (err != null)
@@ -3126,7 +3138,7 @@ namespace Oxide.Plugins
             var blockRotation = buildingBlock.transform.rotation.eulerAngles.y;
             var angles = new[] { 360 - blockRotation, 180 - blockRotation };
             var location = default(Vector3);
-            const double r = 1.9;
+            const double r = 2.9;
             var locationDistance = 100f;
 
 #if DEBUG
