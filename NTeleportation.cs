@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.83", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.84", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1540,30 +1540,66 @@ namespace Oxide.Plugins
         void OnEntityTakeDamage(BaseCombatEntity entity, HitInfo hitinfo)
         {
             var player = entity.ToPlayer();
-            if (player == null || hitinfo == null) return;
-            if (hitinfo.damageTypes.Has(DamageType.Fall) && teleporting.Contains(player.userID))
+            if(player == null || hitinfo == null) return;
+            if(hitinfo.damageTypes.Has(DamageType.Fall) && teleporting.Contains(player.userID))
             {
                 hitinfo.damageTypes = new DamageTypeList();
                 teleporting.Remove(player.userID);
             }
             TeleportTimer teleportTimer;
-            if (!TeleportTimers.TryGetValue(player.userID, out teleportTimer)) return;
+            if(!TeleportTimers.TryGetValue(player.userID, out teleportTimer)) return;
+            DamageType major = hitinfo.damageTypes.GetMajorityDamageType();
             NextTick(() =>
             {
-                if (hitinfo.damageTypes.Total() <= 0) return;
-                if (configData.Settings.InterruptTPOnHurt == false) return;
-                PrintMsgL(teleportTimer.OriginPlayer, "Interrupted");
-                if (teleportTimer.TargetPlayer != null)
-                    PrintMsgL(teleportTimer.TargetPlayer, "InterruptedTarget", teleportTimer.OriginPlayer.displayName);
-                teleportTimer.Timer.Destroy();
-                TeleportTimers.Remove(player.userID);
+                if(hitinfo.damageTypes.Total() <= 0) return;
+                if(configData.Settings.InterruptTPOnHurt == false) return;
+
+                // 1.0.84 new checks for cold/heat based on major damage for the player
+                if(major == DamageType.Cold && configData.Settings.InterruptTPOnCold)
+                {
+                    if(player.metabolism.temperature.value <= configData.Settings.MinimumTemp)
+                    {
+                        PrintMsgL(teleportTimer.OriginPlayer, "TPTooCold");
+                        if(teleportTimer.TargetPlayer != null)
+                        {
+                            PrintMsgL(teleportTimer.TargetPlayer, "InterruptedTarget", teleportTimer.OriginPlayer.displayName);
+                        }
+                        teleportTimer.Timer.Destroy();
+                        TeleportTimers.Remove(player.userID);
+                    }
+                }
+                else if(major == DamageType.Heat && configData.Settings.InterruptTPOnHot)
+                {
+                    if(player.metabolism.temperature.value >= configData.Settings.MaximumTemp)
+                    {
+                        PrintMsgL(teleportTimer.OriginPlayer, "TPTooHot");
+                        if(teleportTimer.TargetPlayer != null)
+                        {
+                            PrintMsgL(teleportTimer.TargetPlayer, "InterruptedTarget", teleportTimer.OriginPlayer.displayName);
+                        }
+                        teleportTimer.Timer.Destroy();
+                        TeleportTimers.Remove(player.userID);
+                    }
+                }
+                else
+                {
+                    PrintMsgL(teleportTimer.OriginPlayer, "Interrupted");
+                    if(teleportTimer.TargetPlayer != null)
+                    {
+                        PrintMsgL(teleportTimer.TargetPlayer, "InterruptedTarget", teleportTimer.OriginPlayer.displayName);
+                    }
+                    teleportTimer.Timer.Destroy();
+                    TeleportTimers.Remove(player.userID);
+                }
             });
         }
 
         void OnPlayerSleepEnded(BasePlayer player)
         {
-            if (teleporting.Contains(player.userID))
+            if(teleporting.Contains(player.userID))
+            {
                 timer.Once(3, () => { teleporting.Remove(player.userID); });
+            }
         }
 
         void OnPlayerDisconnected(BasePlayer player)
@@ -3126,6 +3162,9 @@ namespace Oxide.Plugins
         [ChatCommand("town")]
         private void cmdChatTown(BasePlayer player, string command, string[] args)
         {
+#if DEBUG
+            Puts($"cmdChatTown: command={command}");
+#endif
             switch(command)
             {
                 case "outpost":
@@ -3134,6 +3173,7 @@ namespace Oxide.Plugins
                 case "bandit":
                     if(!IsAllowedMsg(player, PermTpBandit)) return;
                     break;
+                case "town":
                 default:
                     if(!IsAllowedMsg(player, PermTpTown)) return;
                     break;
