@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.29", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.30", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -1359,23 +1359,35 @@ namespace Oxide.Plugins
 
             if (cooldown > 0 && timestamp - homeData.Teleports.Timestamp < cooldown)
             {
+                var cmdSent = "";
+                double balance = 0;
+                bool eco = false;
                 try
                 {
-                    if (args[1].ToLower().Equals(configData.Settings.BypassCMD))
+                    cmdSent = args[1].ToLower();
+                }
+                catch {}
+                try
+                {
+                    balance = (double)Economics?.CallHook("Balance", player.UserIDString);
+                    eco = true;
+                }
+                catch {}
+
+                if(cmdSent == configData.Settings.BypassCMD.ToLower())
+                {
+                    if (configData.Home.Bypass > 0 && (double)balance > configData.Home.Bypass)
                     {
-                        if (configData.Home.Bypass > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) > configData.Home.Bypass)
-                        {
-                            var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Home.Bypass);
-                            PrintMsgL(player, "HomeTPCooldownBypass", configData.Home.Bypass);
-                        }
-                        else
-                        {
-                            PrintMsgL(player, "HomeTPCooldownBypassF", configData.Home.Bypass);
-                            return;
-                        }
+                        var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Home.Bypass);
+                        PrintMsgL(player, "HomeTPCooldownBypass", configData.Home.Bypass);
+                    }
+                    else
+                    {
+                        PrintMsgL(player, "HomeTPCooldownBypassF", configData.Home.Bypass);
+                        return;
                     }
                 }
-                catch
+                else if(eco == true)
                 {
                     var remain = cooldown - (timestamp - homeData.Teleports.Timestamp);
                     PrintMsgL(player, "HomeTPCooldown", FormatTime(remain));
@@ -1384,6 +1396,12 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "HomeTPCooldownBypassP", configData.Home.Bypass);
                         PrintMsgL(player, "HomeTPCooldownBypassP2", configData.Settings.BypassCMD);
                     }
+                    return;
+                }
+                else
+                {
+                    var remain = cooldown - (timestamp - homeData.Teleports.Timestamp);
+                    PrintMsgL(player, "HomeTPCooldown", FormatTime(remain));
                     return;
                 }
             }
@@ -1611,23 +1629,35 @@ namespace Oxide.Plugins
             var cooldown = GetLower(player, configData.TPR.VIPCooldowns, configData.TPR.Cooldown);
             if (cooldown > 0 && timestamp - tprData.Timestamp < cooldown)
             {
+                var cmdSent = "";
+                double balance = 0;
+                bool eco = false;
                 try
                 {
-                    if (args[1].ToLower().Equals(configData.Settings.BypassCMD))
+                    cmdSent = args[0].ToLower();
+                }
+                catch {}
+                try
+                {
+                    balance = (double)Economics?.CallHook("Balance", player.UserIDString);
+                    eco = true;
+                }
+                catch {}
+
+                if(cmdSent == configData.Settings.BypassCMD.ToLower())
+                {
+                    if (configData.TPR.Bypass > 0 && (double)balance > configData.TPR.Bypass)
                     {
-                        if (configData.TPR.Bypass > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) > configData.TPR.Bypass)
-                        {
-                            var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.TPR.Bypass);
-                            PrintMsgL(player, "TPRCooldownBypass", configData.TPR.Bypass);
-                        }
-                        else
-                        {
-                            PrintMsgL(player, "TPRCooldownBypassF", configData.TPR.Bypass);
-                            return;
-                        }
+                        var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.TPR.Bypass);
+                        PrintMsgL(player, "TPRCooldownBypass", configData.TPR.Bypass);
+                    }
+                    else
+                    {
+                        PrintMsgL(player, "TPRCooldownBypassF", configData.TPR.Bypass);
+                        return;
                     }
                 }
-                catch
+                else if(eco == true)
                 {
                     var remain = cooldown - (timestamp - tprData.Timestamp);
                     PrintMsgL(player, "TPRCooldown", FormatTime(remain));
@@ -1636,6 +1666,12 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "TPRCooldownBypassP", configData.TPR.Bypass);
                         PrintMsgL(player, "TPRCooldownBypassP2", configData.Settings.BypassCMD);
                     }
+                    return;
+                }
+                else
+                {
+                    var remain = cooldown - (timestamp - tprData.Timestamp);
+                    PrintMsgL(player, "TPRCooldown", FormatTime(remain));
                     return;
                 }
             }
@@ -2038,23 +2074,35 @@ namespace Oxide.Plugins
             var cooldown = GetLower(player, configData.Town.VIPCooldowns, configData.Town.Cooldown);
             if (cooldown > 0 && timestamp - teleportData.Timestamp < cooldown)
             {
+                var cmdSent = "";
+                double balance = 0;
+                bool eco = false;
                 try
                 {
-                    if (args[0].ToLower().Equals(configData.Settings.BypassCMD))
+                    cmdSent = args[0].ToLower();
+                }
+                catch {}
+                try
+                {
+                    balance = (double)Economics?.CallHook("Balance", player.UserIDString);
+                    eco = true;
+                }
+                catch {}
+
+                if(cmdSent == configData.Settings.BypassCMD.ToLower())
+                {
+                    if (configData.Town.Bypass > 0 && (double)balance > configData.Town.Bypass)
                     {
-                        if (configData.Town.Bypass > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) > configData.Town.Bypass)
-                        {
-                            var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Town.Bypass);
-                            PrintMsgL(player, "TownTPCooldownBypass", configData.Town.Bypass);
-                        }
-                        else
-                        {
-                            PrintMsgL(player, "TownTPCooldownBypassF", configData.Town.Bypass);
-                            return;
-                        }
+                        var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Town.Bypass);
+                        PrintMsgL(player, "TownTPCooldownBypass", configData.Town.Bypass);
+                    }
+                    else
+                    {
+                        PrintMsgL(player, "TownTPCooldownBypassF", configData.Town.Bypass);
+                        return;
                     }
                 }
-                catch
+                else if(eco == true)
                 {
                     var remain = cooldown - (timestamp - teleportData.Timestamp);
                     PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
@@ -2063,6 +2111,13 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "TownTPCooldownBypassP", configData.Town.Bypass);
                         PrintMsgL(player, "TownTPCooldownBypassP2", configData.Settings.BypassCMD);
                     }
+                    return;
+                }
+                else
+                {
+                    Puts("ECO FALSE");
+                    var remain = cooldown - (timestamp - teleportData.Timestamp);
+                    PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
                     return;
                 }
             }
