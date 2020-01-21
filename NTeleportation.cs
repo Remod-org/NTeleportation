@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.46", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.47", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -90,9 +90,13 @@ namespace Oxide.Plugins
             public bool TPREnabled { get; set; }
             public bool TownEnabled { get; set; }
             public bool InterruptTPOnHurt { get; set; }
+            public bool InterruptTPOnCold { get; set; }
+            public bool InterruptTPOnHot { get; set; }
             public bool InterruptTPOnSafe { get; set; }
             public bool InterruptTPOnMonument { get; set; }
             public float DefaultMonumentSize { get; set; }
+            public float MinimumTemp { get; set; }
+            public float MaximumTemp { get; set; }
             public Dictionary<string, string> BlockedItems { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             public string BypassCMD { get; set; }
             public bool UseEconomics { get; set; }
@@ -216,6 +220,10 @@ namespace Oxide.Plugins
                     TPREnabled = true,
                     TownEnabled = true,
                     InterruptTPOnHurt = true,
+                    InterruptTPOnCold = false,
+                    InterruptTPOnHot = false,
+                    MinimumTemp = 0f,
+                    MaximumTemp = 40f,
                     InterruptTPOnSafe = true,
                     InterruptTPOnMonument = false,
                     DefaultMonumentSize = 50f,
@@ -358,6 +366,8 @@ namespace Oxide.Plugins
                 {"TPRTarget", "Your target is currently not available!"},
                 {"TPDead", "You can't teleport while being dead!"},
                 {"TPWounded", "You can't teleport while wounded!"},
+                {"TPTooCold", "You're too cold to teleport!"},
+                {"TPTooHot", "You're too hot to teleport!"},
                 {"TPMounted", "You can't teleport while seated!"},
                 {"TPBuildingBlocked", "You can't teleport while in a building blocked zone!"},
                 {"TPTargetBuildingBlocked", "You can't teleport in a building blocked zone!"},
@@ -2715,6 +2725,20 @@ namespace Oxide.Plugins
             // Block if hurt if the config is enabled.  If the player is not the target in a tpa condition, allow.
             if((player.IsWounded() && origin) && configData.Settings.InterruptTPOnHurt == true)
                 return "TPWounded";
+
+            if(player.metabolism.temperature.value <= configData.Settings.MinimumTemp && configData.Settings.InterruptTPOnCold == true)
+            {
+                //var temperature = player.metabolism.temperature.value.ToString();
+                //Puts($"Player Temp == {temperature}");
+                return "TPTooCold";
+            }
+            if(player.metabolism.temperature.value >= configData.Settings.MaximumTemp && configData.Settings.InterruptTPOnHot == true)
+            {
+                //var temperature = player.metabolism.temperature.value.ToString();
+                //Puts($"Player Temp == {temperature}");
+                return "TPTooHot";
+            }
+
             if(!build && !player.CanBuild())
                 return "TPBuildingBlocked";
             if(player.IsSwimming())
