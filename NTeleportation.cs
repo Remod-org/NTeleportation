@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.48", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.49", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -95,6 +95,9 @@ namespace Oxide.Plugins
             public bool InterruptTPOnCold { get; set; }
             public bool InterruptTPOnHot { get; set; }
             public bool InterruptTPOnSafe { get; set; }
+            public bool InterruptTPOnBalloon { get; set; }
+            public bool InterruptTPOnCargo { get; set; }
+            public bool InterruptTPOnLift { get; set; }
             public bool InterruptTPOnMonument { get; set; }
             public float DefaultMonumentSize { get; set; }
             public float MinimumTemp { get; set; }
@@ -228,6 +231,9 @@ namespace Oxide.Plugins
                     MinimumTemp = 0f,
                     MaximumTemp = 40f,
                     InterruptTPOnSafe = true,
+                    InterruptTPOnBalloon = true,
+                    InterruptTPOnCargo = true,
+                    InterruptTPOnLift = true,
                     InterruptTPOnMonument = false,
                     DefaultMonumentSize = 50f,
                     BypassCMD = "pay",
@@ -967,6 +973,7 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "CantTeleportToSelf");
                         return;
                     }
+                    player.SetParent(null, true, true);
                     TeleportToPlayer(player, target);
                     PrintMsgL(player, "AdminTP", target.displayName);
                     Puts(_("LogTeleport", null, player.displayName, target.displayName));
@@ -983,6 +990,7 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "CantTeleportPlayerToSelf");
                         return;
                     }
+                    origin.SetParent(null, true, true);
                     TeleportToPlayer(origin, target);
                     PrintMsgL(player, "AdminTPPlayers", origin.displayName, target.displayName);
                     PrintMsgL(origin, "AdminTPPlayer", player.displayName, target.displayName);
@@ -1001,6 +1009,7 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "AdminTPBoundaries", boundary);
                         return;
                     }
+                    player.SetParent(null, true, true);
                     TeleportToPosition(player, x, y, z);
                     PrintMsgL(player, "AdminTPCoordinates", player.transform.position);
                     Puts(_("LogTeleport", null, player.displayName, player.transform.position));
@@ -1019,6 +1028,7 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "AdminTPBoundaries", boundary);
                         return;
                     }
+                    player.SetParent(null, true, true);
                     TeleportToPosition(target, x, y, z);
                     if (player == target)
                     {
@@ -1423,7 +1433,7 @@ namespace Oxide.Plugins
         }
 
         // Check balance on multiple plugins and optionally withdraw money from the player
-        private bool CheckEconomy(BasePlayer player, double bypass, bool withdraw = false)
+        private bool CheckEconomy(BasePlayer player, double bypass, bool withdraw = false, bool deposit = false)
         {
             double balance = 0;
             bool foundmoney = false;
@@ -1439,6 +1449,10 @@ namespace Oxide.Plugins
                     {
                         var w = (bool)Economics?.CallHook("Withdraw", player.userID, bypass);
                         return w;
+                    }
+                    else if(deposit == true)
+                    {
+                        var w = (bool)Economics?.CallHook("Deposit", player.userID, bypass);
                     }
                 }
             }
@@ -1456,6 +1470,10 @@ namespace Oxide.Plugins
                         var w = (bool)ServerRewards?.Call("TakePoints", player.userID, (int)bypass);
                         return w;
                     }
+                    else if(deposit == true)
+                    {
+                        var w = (bool)ServerRewards?.Call("AddPoints", player.userID, (int)bypass);
+                    }
                 }
             }
 
@@ -1470,6 +1488,7 @@ namespace Oxide.Plugins
         private void cmdChatHomeTP(BasePlayer player, string command, string[] args)
         {
             if (!IsAllowed(player, PermHome)) return;
+            bool paidmoney = false;
             if (!configData.Settings.HomesEnabled) return;
             if (args.Length < 1)
             {
@@ -1539,6 +1558,7 @@ namespace Oxide.Plugins
                     if(foundmoney == true)
                     {
                         CheckEconomy(player, configData.Home.Bypass, true);
+                        paidmoney = true;
                         PrintMsgL(player, "HomeTPCooldownBypass", configData.Home.Bypass);
                         if(payalso)
                         {
@@ -1604,6 +1624,11 @@ namespace Oxide.Plugins
                     {
                         PrintMsgL(player, "Interrupted");
                         PrintMsgL(player, err);
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Home.Bypass, false, true);
+                        }
                         TeleportTimers.Remove(player.userID);
                         return;
                     }
@@ -1611,7 +1636,12 @@ namespace Oxide.Plugins
                     if (err != null)
                     {
                         PrintMsgL(player, "Interrupted");
-                        SendReply(player, err);
+                        PrintMsgL(player, err);
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Home.Bypass, false, true);
+                        }
                         TeleportTimers.Remove(player.userID);
                         return;
                     }
@@ -1620,6 +1650,11 @@ namespace Oxide.Plugins
                     {
                         PrintMsgL(player, "Interrupted");
                         PrintMsgL(player, "TPBlockedItem", err);
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Home.Bypass, false, true);
+                        }
                         TeleportTimers.Remove(player.userID);
                         return;
                     }
@@ -1629,6 +1664,11 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "HomeRemovedInvalid", args[0]);
                         homeData.Locations.Remove(args[0]);
                         changedHome = true;
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Home.Bypass, false, true);
+                        }
                         return;
                     }
                     err = CheckInsideBlock(location);
@@ -1637,6 +1677,11 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "HomeRemovedInsideBlock", args[0]);
                         homeData.Locations.Remove(args[0]);
                         changedHome = true;
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Home.Bypass, false, true);
+                        }
                         return;
                     }
                     if(UseEconomy())
@@ -1655,6 +1700,7 @@ namespace Oxide.Plugins
                             PrintMsgL(player, "TPMoney", (double)configData.Home.Pay);
                         }
                     }
+                    player.SetParent(null, true, true);
                     Teleport(player, location);
                     homeData.Teleports.Amount++;
                     homeData.Teleports.Timestamp = timestamp;
@@ -1750,23 +1796,39 @@ namespace Oxide.Plugins
         {
             if (!IsAllowedMsg(player, PermTpR)) return;
             if (!configData.Settings.TPREnabled) return;
-            if (args.Length != 1)
+            if (args.Length < 1)
             {
                 PrintMsgL(player, "SyntaxCommandTPR");
                 return;
             }
+            BasePlayer target = null;
             var targets = FindPlayersOnline(args[0]);
             if (targets.Count <= 0)
             {
                 PrintMsgL(player, "PlayerNotFound");
                 return;
             }
-            if (targets.Count > 1)
+            else if (targets.Count > 1 && args.Length < 2)
             {
-                PrintMsgL(player, "MultiplePlayers", string.Join(", ", targets.ConvertAll(p => p.displayName).ToArray()));
+                PrintMsgL(player, "MultiplePlayers");
+                int i = 0;
+                foreach(var tgt in targets)
+                {
+                    PrintMsgL(player, i.ToString() + ": " + tgt);
+                }
+
                 return;
             }
-            var target = targets[0];
+            else if (targets.Count > 1 && args.Length == 2)
+            {
+                int tgtindex = Convert.ToInt32(args[1]);
+                target = targets[tgtindex];
+            }
+            else
+            {
+                target = targets[0];
+            }
+
             if (target == player)
             {
                 PrintMsgL(player, "CantTeleportToSelf");
@@ -2222,6 +2284,7 @@ namespace Oxide.Plugins
         {
             if (!IsAllowedMsg(player, PermTpTown)) return;
 
+            bool paidmoney = false;
             if (args.Length == 1 && IsAllowed(player) && args[0].ToLower().Equals("set"))
             {
                 configData.Town.Location = player.transform.position;
@@ -2283,6 +2346,7 @@ namespace Oxide.Plugins
                     if(foundmoney == true)
                     {
                         CheckEconomy(player, configData.Town.Bypass, true);
+                        paidmoney = true;
                         PrintMsgL(player, "TownTPCooldownBypass", configData.Town.Bypass);
                         if(payalso)
                         {
@@ -2349,6 +2413,11 @@ namespace Oxide.Plugins
                     {
                         PrintMsgL(player, "Interrupted");
                         PrintMsgL(player, err);
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Town.Bypass, false, true);
+                        }
                         TeleportTimers.Remove(player.userID);
                         return;
                     }
@@ -2356,7 +2425,12 @@ namespace Oxide.Plugins
                     if (err != null)
                     {
                         PrintMsgL(player, "Interrupted");
-                        SendReply(player, err);
+                        PrintMsgL(player, err);
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Town.Bypass, false, true);
+                        }
                         TeleportTimers.Remove(player.userID);
                         return;
                     }
@@ -2365,6 +2439,11 @@ namespace Oxide.Plugins
                     {
                         PrintMsgL(player, "Interrupted");
                         PrintMsgL(player, "TPBlockedItem", err);
+                        if(paidmoney == true)
+                        {
+                            paidmoney = false;
+                            CheckEconomy(player, configData.Town.Bypass, false, true);
+                        }
                         TeleportTimers.Remove(player.userID);
                         return;
                     }
@@ -2383,6 +2462,7 @@ namespace Oxide.Plugins
                             PrintMsgL(player, "TPMoney", (double)configData.Town.Pay);
                         }
                     }
+                    player.SetParent(null, true, true);
                     Teleport(player, configData.Town.Location);
                     teleportData.Amount++;
                     teleportData.Timestamp = timestamp;
@@ -2428,6 +2508,7 @@ namespace Oxide.Plugins
                         arg.ReplyWith(_("AdminTPOutOfBounds", arg.Player()) + Environment.NewLine + _("AdminTPBoundaries", arg.Player(), boundary));
                         return false;
                     }
+                    targetPlayer.SetParent(null, true, true);
                     TeleportToPosition(targetPlayer, x, y, z);
                     PrintMsgL(targetPlayer, "AdminTPConsoleTP", targetPlayer.transform.position);
                     arg.ReplyWith(_("AdminTPTargetCoordinates", arg.Player(), targetPlayer.displayName, targetPlayer.transform.position));
@@ -2468,6 +2549,7 @@ namespace Oxide.Plugins
                         arg.ReplyWith(_("CantTeleportPlayerToSelf", arg.Player()));
                         return false;
                     }
+                    originPlayer.SetParent(null, true, true);
                     TeleportToPlayer(originPlayer, targetPlayer);
                     arg.ReplyWith(_("AdminTPPlayers", arg.Player(), originPlayer.displayName, targetPlayer.displayName));
                     PrintMsgL(originPlayer, "AdminTPConsoleTPPlayer", targetPlayer.displayName);
@@ -2755,13 +2837,13 @@ namespace Oxide.Plugins
                 return "TPBuildingBlocked";
             if(player.IsSwimming())
                 return "TPSwimming";
-            if(onship)
+            if(onship && configData.Settings.InterruptTPOnCargo == true)
                 return "TPCargoShip";
-            if(onballoon)
+            if(onballoon && configData.Settings.InterruptTPOnBalloon == true)
                 return "TPHotAirBalloon";
-            if(inlift)
+            if(inlift && configData.Settings.InterruptTPOnLift == true)
                 return "TPBucketLift";
-            if(GetLift(pos))
+            if(GetLift(pos) && configData.Settings.InterruptTPOnLift == true)
                 return "TPRegLift";
             if(player.InSafeZone() && configData.Settings.InterruptTPOnSafe == true)
                 return "TPSafeZone";
