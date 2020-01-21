@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.59", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.60", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1448,7 +1448,8 @@ namespace Oxide.Plugins
                     TeleportToPlayer(origin, target);
                     PrintMsgL(player, "AdminTPPlayers", origin.displayName, target.displayName);
                     PrintMsgL(origin, "AdminTPPlayer", player.displayName, target.displayName);
-                    PrintMsgL(target, "AdminTPPlayerTarget", player.displayName, origin.displayName);
+                    if (configData.Admin.AnnounceTeleportToTarget)
+                        PrintMsgL(target, "AdminTPPlayerTarget", player.displayName, origin.displayName);
                     Puts(_("LogTeleportPlayer", null, player.displayName, origin.displayName, target.displayName));
                     break;
                 case 3:
@@ -1492,7 +1493,8 @@ namespace Oxide.Plugins
                     else
                     {
                         PrintMsgL(player, "AdminTPTargetCoordinates", target.displayName, player.transform.position);
-                        PrintMsgL(target, "AdminTPTargetCoordinatesTarget", player.displayName, player.transform.position);
+                        if (configData.Admin.AnnounceTeleportToTarget)
+                            PrintMsgL(target, "AdminTPTargetCoordinatesTarget", player.displayName, player.transform.position);
                         Puts(_("LogTeleportPlayer", null, player.displayName, target.displayName, player.transform.position));
                     }
                     break;
@@ -2953,7 +2955,8 @@ namespace Oxide.Plugins
                     }
                     targetPlayer.SetParent(null, true, true);
                     TeleportToPosition(targetPlayer, x, y, z);
-                    PrintMsgL(targetPlayer, "AdminTPConsoleTP", targetPlayer.transform.position);
+                    if (configData.Admin.AnnounceTeleportToTarget)
+                        PrintMsgL(targetPlayer, "AdminTPConsoleTP", targetPlayer.transform.position);
                     arg.ReplyWith(_("AdminTPTargetCoordinates", arg.Player(), targetPlayer.displayName, targetPlayer.transform.position));
                     Puts(_("LogTeleportPlayer", null, arg.Player()?.displayName, targetPlayer.displayName, targetPlayer.transform.position));
                     break;
@@ -2996,7 +2999,8 @@ namespace Oxide.Plugins
                     TeleportToPlayer(originPlayer, targetPlayer);
                     arg.ReplyWith(_("AdminTPPlayers", arg.Player(), originPlayer.displayName, targetPlayer.displayName));
                     PrintMsgL(originPlayer, "AdminTPConsoleTPPlayer", targetPlayer.displayName);
-                    PrintMsgL(targetPlayer, "AdminTPConsoleTPPlayerTarget", originPlayer.displayName);
+                    if (configData.Admin.AnnounceTeleportToTarget)
+                        PrintMsgL(targetPlayer, "AdminTPConsoleTPPlayerTarget", originPlayer.displayName);
                     Puts(_("LogTeleportPlayer", null, arg.Player()?.displayName, originPlayer.displayName, targetPlayer.displayName));
                     break;
             }
