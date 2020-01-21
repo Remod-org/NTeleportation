@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.58", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.59", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -3966,7 +3966,7 @@ namespace Oxide.Plugins
         [HookMethod("SendHelpText")]
         private void SendHelpText(BasePlayer player)
         {
-            PrintMsgL(player, "<size=14>NTeleportation</size> by <color=#ce422b>RFC1920</color>\n<color=\"#ffd479\">/sethome NAME</color> - Set home on current foundation\n<color=\"#ffd479\">/home NAME</color> - Go to one of your homes\n<color=\"#ffd479\">/home list</color> - List your homes\n<color=\"#ffd479\">/town</color> - Go to town, if set\n/tpb - Go back to previous location\n/tpr PLAYER - Request teleport to PLAYER\n/tpa - Accept teleport request");
+			PrintMsgL(player, "<size=14>NTeleportation</size> by <color=#ce422b>RFC1920</color>\n<color=#ffd479>/sethome NAME</color> - Set home on current foundation\n<color=#ffd479>/home NAME</color> - Go to one of your homes\n<color=#ffd479>/home list</color> - List your homes\n<color=#ffd479>/town</color> - Go to town, if set\n/tpb - Go back to previous location\n/tpr PLAYER - Request teleport to PLAYER\n/tpa - Accept teleport request");
         }
     }
 }
