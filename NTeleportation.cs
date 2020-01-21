@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.63", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.64", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1506,7 +1506,6 @@ namespace Oxide.Plugins
                         return;
 #endif
                     }
-                    player.SetParent(null, true, true);
 //                    if(player.isMounted)
 //                        player.DismountObject();
                     TeleportToPlayer(player, target);
@@ -1525,7 +1524,6 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "CantTeleportPlayerToSelf");
                         return;
                     }
-                    origin.SetParent(null, true, true);
                     TeleportToPlayer(origin, target);
                     PrintMsgL(player, "AdminTPPlayers", origin.displayName, target.displayName);
                     PrintMsgL(origin, "AdminTPPlayer", player.displayName, target.displayName);
@@ -1545,7 +1543,6 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "AdminTPBoundaries", boundary);
                         return;
                     }
-                    player.SetParent(null, true, true);
                     TeleportToPosition(player, x, y, z);
                     PrintMsgL(player, "AdminTPCoordinates", player.transform.position);
                     Puts(_("LogTeleport", null, player.displayName, player.transform.position));
@@ -1564,7 +1561,6 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "AdminTPBoundaries", boundary);
                         return;
                     }
-                    player.SetParent(null, true, true);
                     TeleportToPosition(target, x, y, z);
                     if (player == target)
                     {
@@ -2242,7 +2238,6 @@ namespace Oxide.Plugins
                             PrintMsgL(player, "TPMoney", (double)configData.Home.Pay);
                         }
                     }
-                    player.SetParent(null, true, true);
                     Teleport(player, location);
                     homeData.Teleports.Amount++;
                     homeData.Teleports.Timestamp = timestamp;
@@ -2988,7 +2983,6 @@ namespace Oxide.Plugins
                             PrintMsgL(player, "TPMoney", (double)configData.Town.Pay);
                         }
                     }
-                    player.SetParent(null, true, true);
                     Teleport(player, configData.Town.Location);
                     teleportData.Amount++;
                     teleportData.Timestamp = timestamp;
@@ -3034,7 +3028,6 @@ namespace Oxide.Plugins
                         arg.ReplyWith(_("AdminTPOutOfBounds", arg.Player()) + Environment.NewLine + _("AdminTPBoundaries", arg.Player(), boundary));
                         return false;
                     }
-                    targetPlayer.SetParent(null, true, true);
                     TeleportToPosition(targetPlayer, x, y, z);
                     if (configData.Admin.AnnounceTeleportToTarget)
                         PrintMsgL(targetPlayer, "AdminTPConsoleTP", targetPlayer.transform.position);
@@ -3076,7 +3069,6 @@ namespace Oxide.Plugins
                         arg.ReplyWith(_("CantTeleportPlayerToSelf", arg.Player()));
                         return false;
                     }
-                    originPlayer.SetParent(null, true, true);
                     TeleportToPlayer(originPlayer, targetPlayer);
                     arg.ReplyWith(_("AdminTPPlayers", arg.Player(), originPlayer.displayName, targetPlayer.displayName));
                     PrintMsgL(originPlayer, "AdminTPConsoleTPPlayer", targetPlayer.displayName);
@@ -3171,6 +3163,7 @@ namespace Oxide.Plugins
             if (player.net?.connection != null)
                 player.ClientRPCPlayer(null, player, "StartLoading");
             StartSleeping(player);
+            player.SetParent(null, true, true);
             player.MovePosition(position);
             if (player.net?.connection != null)
                 player.ClientRPCPlayer(null, player, "ForcePositionTo", position);
