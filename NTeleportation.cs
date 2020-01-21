@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.74", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.75", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -4260,14 +4260,15 @@ namespace Oxide.Plugins
         }
 
         // Borrowed/modified from PreventLooting and Rewards
-        bool IsFriend(ulong friendid, ulong playerid)
+        // playerid = active player, ownerid = owner of building block, who may be offline
+        bool IsFriend(ulong playerid, ulong ownerid)
         {
             if(configData.Home.UseFriends && Friends != null)
             {
 #if DEBUG
                 Puts("Checking Friends...");
 #endif
-                var fr = Friends?.CallHook("AreFriends", friendid, playerid);
+                var fr = Friends?.CallHook("AreFriends", playerid, ownerid);
                 if(fr != null && (bool)fr)
                 {
 #if DEBUG
@@ -4281,9 +4282,9 @@ namespace Oxide.Plugins
 #if DEBUG
                 Puts("Checking Clans...");
 #endif
-                string vclan = (string)Clans?.CallHook("GetClanOf", BasePlayer.FindByID(playerid));
-                string pclan = (string)Clans?.CallHook("GetClanOf", BasePlayer.FindByID(friendid));
-                if(pclan == vclan && pclan != null && vclan != null)
+                string playerclan = (string)Clans?.CallHook("GetClanOf", playerid);
+                string ownerclan  = (string)Clans?.CallHook("GetClanOf", ownerid);
+                if(playerclan == ownerclan && playerclan != null && ownerclan != null)
                 {
 #if DEBUG
                     Puts("  IsFriend: true based on Clans plugin");
@@ -4301,7 +4302,7 @@ namespace Oxide.Plugins
                 {
                     RelationshipManager.PlayerTeam playerTeam = RelationshipManager.Instance.FindTeam(player.currentTeam);
                     if(playerTeam == null) return false;
-                    if(playerTeam.members.Contains(friendid))
+                    if(playerTeam.members.Contains(ownerid))
                     {
 #if DEBUG
                         Puts("  IsFriend: true based on Rust teams");
