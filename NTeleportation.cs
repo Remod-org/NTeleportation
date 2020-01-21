@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.60", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.61", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -72,6 +72,13 @@ namespace Oxide.Plugins
         private SortedDictionary<string, Vector3> monPos  = new SortedDictionary<string, Vector3>();
         private SortedDictionary<string, Vector3> monSize = new SortedDictionary<string, Vector3>();
         private SortedDictionary<string, Vector3> cavePos  = new SortedDictionary<string, Vector3>();
+        private int RustNetwork = 0;
+        private int RustSave = 0;
+        private string RustLevel = null;
+        private string RustLevelUrl = null;
+        private int RustWorldSize = 0;
+        private int RustSeed = 0;
+        private bool WipeOnUpgradeOrChange = false;
 
         [PluginReference]
         private Plugin Clans, Economics, ServerRewards, Friends, RustIO;
@@ -79,6 +86,7 @@ namespace Oxide.Plugins
         class ConfigData
         {
             public SettingsData Settings { get; set; }
+            public GameVersionData GameVersion { get; set; }
             public AdminSettingsData Admin { get; set; }
             public HomesSettingsData Home { get; set; }
             public TPRData TPR { get; set; }
@@ -113,6 +121,17 @@ namespace Oxide.Plugins
             public string BypassCMD { get; set; }
             public bool UseEconomics { get; set; }
             public bool UseServerRewards { get; set; }
+            public bool WipeOnUpgradeOrChange { get; set; }
+        }
+
+        class GameVersionData
+        {
+            public int Network { get; set; }
+            public int Save { get; set; }
+            public string Level { get; set; }
+            public string LevelURL { get; set; }
+            public int WorldSize { get; set; }
+            public int Seed { get; set; }
         }
 
         class AdminSettingsData
@@ -252,7 +271,17 @@ namespace Oxide.Plugins
                     DefaultMonumentSize = 50f,
                     BypassCMD = "pay",
                     UseEconomics = false,
-                    UseServerRewards = false
+                    UseServerRewards = false,
+                    WipeOnUpgradeOrChange = false
+                },
+                GameVersion = new GameVersionData
+                {
+                    Network = Convert.ToInt32(Protocol.network),
+                    Save = Convert.ToInt32(Protocol.save),
+                    Level = ConVar.Server.level,
+                    LevelURL = ConVar.Server.levelurl,
+                    WorldSize = ConVar.Server.worldsize,
+                    Seed = ConVar.Server.seed
                 },
                 Admin = new AdminSettingsData
                 {
@@ -308,6 +337,13 @@ namespace Oxide.Plugins
 
         private void Init()
         {
+            RustNetwork = Convert.ToInt32(Protocol.network);
+            RustSave = Convert.ToInt32(Protocol.save);
+            RustLevel = ConVar.Server.level;
+            RustLevelUrl = ConVar.Server.levelurl;
+            RustWorldSize = ConVar.Server.worldsize;
+            RustSeed = ConVar.Server.seed;
+            //Puts($"Game Version: {RustNetwork}.{RustSave}, Url: {RustLevelUrl}, Level: {RustLevel}, size: {RustWorldSize}, seed: {RustSeed}");
             lang.RegisterMessages(new Dictionary<string, string>
             {
                 {"AdminTP", "You teleported to {0}!"},
@@ -1157,6 +1193,20 @@ namespace Oxide.Plugins
                 {
                     configData.Settings.CaveDistanceLarge = 100f;
                 }
+                if(configData.GameVersion == null)
+                {
+                    configData.GameVersion = new GameVersionData();
+                }
+                if (configData.GameVersion.Save < 1)
+                {
+                    configData.GameVersion.Network = Convert.ToInt32(Protocol.network);
+                    configData.GameVersion.Save = Convert.ToInt32(Protocol.save);
+                    configData.GameVersion.Level = ConVar.Server.level;
+                    configData.GameVersion.LevelURL = ConVar.Server.levelurl;
+                    configData.GameVersion.WorldSize = ConVar.Server.worldsize;
+                    configData.GameVersion.Seed = ConVar.Server.seed;
+                    configData.Settings.WipeOnUpgradeOrChange = false;
+                }
                 configData.Version = Version;
                 Config.WriteObject(configData, true);
             }
@@ -1164,6 +1214,34 @@ namespace Oxide.Plugins
             Admin = dataAdmin.ReadObject<Dictionary<ulong, AdminData>>();
             dataHome = GetFile(nameof(NTeleportation) + "Home");
             Home = dataHome.ReadObject<Dictionary<ulong, HomeData>>();
+
+            // Detect version, level (map choice), worldsize, or seed change.
+            // Any of these should invalidate the saved homes.
+            // Checking network would wipe with EVERY update during the month!
+            if((configData.GameVersion.Save > 0 && configData.GameVersion.Save != RustSave)
+            || (configData.GameVersion.Level != null && configData.GameVersion.Level != RustLevel)
+            || (configData.GameVersion.WorldSize > 0 && configData.GameVersion.WorldSize != RustWorldSize)
+            || (configData.GameVersion.Seed > 0 && configData.GameVersion.Seed != RustSeed))
+            {
+                if(configData.Settings.WipeOnUpgradeOrChange == true)
+                {
+                    // Only wipe for the brave using this value set to true
+                    Puts("Rust was upgraded or map changed - clearing homes!");
+                    Home.Clear();
+                    changedHome = true;
+                }
+                else
+                {
+                    Puts("Rust was upgraded or map changed - homes may be invalid!");
+                }
+            }
+            configData.GameVersion.Network = RustNetwork;
+            configData.GameVersion.Save = RustSave;
+            configData.GameVersion.Level   = RustLevel;
+            configData.GameVersion.LevelURL = RustLevelUrl;
+            configData.GameVersion.WorldSize = RustWorldSize;
+            configData.GameVersion.Seed    = RustSeed;
+            Config.WriteObject(configData, true);
 
             dataTPR = GetFile(nameof(NTeleportation) + "TPR");
             TPR = dataTPR.ReadObject<Dictionary<ulong, TeleportData>>();
@@ -3970,7 +4048,7 @@ namespace Oxide.Plugins
         [HookMethod("SendHelpText")]
         private void SendHelpText(BasePlayer player)
         {
-			PrintMsgL(player, "<size=14>NTeleportation</size> by <color=#ce422b>RFC1920</color>\n<color=#ffd479>/sethome NAME</color> - Set home on current foundation\n<color=#ffd479>/home NAME</color> - Go to one of your homes\n<color=#ffd479>/home list</color> - List your homes\n<color=#ffd479>/town</color> - Go to town, if set\n/tpb - Go back to previous location\n/tpr PLAYER - Request teleport to PLAYER\n/tpa - Accept teleport request");
+            PrintMsgL(player, "<size=14>NTeleportation</size> by <color=#ce422b>RFC1920</color>\n<color=#ffd479>/sethome NAME</color> - Set home on current foundation\n<color=#ffd479>/home NAME</color> - Go to one of your homes\n<color=#ffd479>/home list</color> - List your homes\n<color=#ffd479>/town</color> - Go to town, if set\n/tpb - Go back to previous location\n/tpr PLAYER - Request teleport to PLAYER\n/tpa - Accept teleport request");
         }
     }
 }
