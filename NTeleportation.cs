@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.75", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.76", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -1631,6 +1631,7 @@ namespace Oxide.Plugins
                 Puts($"Found {name}");
 #endif
                 var width = monument.Bounds.extents;
+
                 if(monument.name.Contains("cave"))
                 {
 #if DEBUG
@@ -1679,6 +1680,9 @@ namespace Oxide.Plugins
                     }
                     monPos.Add(name, monument.transform.position);
                     monSize.Add(name, width);
+#if DEBUG
+                    Puts($"Adding Monument: {name}, pos: {monument.transform.position.ToString()}, size: {width.ToString()}");
+#endif
                 }
             }
             monPos.OrderBy(x => x.Key);
@@ -3200,7 +3204,7 @@ namespace Oxide.Plugins
                     msgCooldownBypassP = "OutpostTPCooldownBypassP";
                     msgCooldownBypassP2 = "OutpostTPCooldownBypassP2";
                     msgLimitReached = "OutpostTPLimitReached";
-                    limit = GetHigher(player, configData.Outpost.VIPCooldowns, configData.Outpost.DailyLimit);
+                    limit = GetHigher(player, configData.Outpost.VIPDailyLimits, configData.Outpost.DailyLimit);
                     break;
                 case "bandit":
                     err = CheckPlayer(player, configData.Bandit.UsableOutOfBuildingBlocked, CanCraftBandit(player), true, "bandit");
@@ -3224,7 +3228,7 @@ namespace Oxide.Plugins
                     msgCooldownBypassP = "BanditTPCooldownBypassP";
                     msgCooldownBypassP2 = "BanditTPCooldownBypassP2";
                     msgLimitReached = "BanditTPLimitReached";
-                    limit = GetHigher(player, configData.Bandit.VIPCooldowns, configData.Bandit.DailyLimit);
+                    limit = GetHigher(player, configData.Bandit.VIPDailyLimits, configData.Bandit.DailyLimit);
                     break;
                 default:
                     err = CheckPlayer(player, configData.Town.UsableOutOfBuildingBlocked, CanCraftTown(player), true, "town");
@@ -3248,7 +3252,7 @@ namespace Oxide.Plugins
                     msgCooldownBypassP = "TownTPCooldownBypassP";
                     msgCooldownBypassP2 = "TownTPCooldownBypassP2";
                     msgLimitReached = "TownTPLimitReached";
-                    limit = GetHigher(player, configData.Town.VIPCooldowns, configData.Town.DailyLimit);
+                    limit = GetHigher(player, configData.Town.VIPDailyLimits, configData.Town.DailyLimit);
                     break;
             }
 
