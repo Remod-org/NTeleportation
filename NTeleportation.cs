@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.51", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.52", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -100,6 +100,9 @@ namespace Oxide.Plugins
             public bool InterruptTPOnCargo { get; set; }
             public bool InterruptTPOnLift { get; set; }
             public bool InterruptTPOnMonument { get; set; }
+            public float CaveDistanceSmall { get; set; }
+            public float CaveDistanceMedium { get; set; }
+            public float CaveDistanceLarge { get; set; }
             public float DefaultMonumentSize { get; set; }
             public float MinimumTemp { get; set; }
             public float MaximumTemp { get; set; }
@@ -237,6 +240,9 @@ namespace Oxide.Plugins
                     InterruptTPOnCargo = true,
                     InterruptTPOnLift = true,
                     InterruptTPOnMonument = false,
+                    CaveDistanceSmall = 40f,
+                    CaveDistanceMedium = 60f,
+                    CaveDistanceLarge = 100f,
                     DefaultMonumentSize = 50f,
                     BypassCMD = "pay",
                     UseEconomics = false,
@@ -397,6 +403,7 @@ namespace Oxide.Plugins
                 {"TPBlockedItem", "You can't teleport while carrying: {0}!"},
                 {"TooCloseToMon", "You can't teleport so close to the {0}!"},
                 {"TooCloseToCave", "You can't teleport so close to a cave!"},
+                {"HomeTooCloseToCave", "You can't set home so close to a cave!"},
                 {"TownTP", "You teleported to town!"},
                 {"TownTPNotSet", "Town is currently not set!"},
                 {"TownTPDisabled", "Town is currently not enabled!"},
@@ -726,9 +733,25 @@ namespace Oxide.Plugins
                     configData.Home.UsableIntoBuildingBlocked = true;
                     configData.TPR.UsableIntoBuildingBlocked = true;
                 }
+                if (configData.Settings.MaximumTemp < 1)
+                {
+                    configData.Settings.MaximumTemp = 40f;
+                }
                 if (configData.Settings.DefaultMonumentSize < 1)
                 {
                     configData.Settings.DefaultMonumentSize = 50f;
+                }
+                if (configData.Settings.CaveDistanceSmall < 1)
+                {
+                    configData.Settings.CaveDistanceSmall = 40f;
+                }
+                if (configData.Settings.CaveDistanceMedium < 1)
+                {
+                    configData.Settings.CaveDistanceMedium = 60f;
+                }
+                if (configData.Settings.CaveDistanceLarge < 1)
+                {
+                    configData.Settings.CaveDistanceLarge = 100f;
                 }
                 configData.Version = Version;
                 Config.WriteObject(configData, true);
@@ -939,14 +962,22 @@ namespace Oxide.Plugins
                 string name = Regex.Match(monument.name, @"\w{6}\/(.+\/)(.+)\.(.+)").Groups[2].Value.Replace("_", " ").Replace(" 1", "").Titleize();
                 if(monPos.ContainsKey(name)) continue;
                 if(cavePos.ContainsKey(name)) name = name + RandomString();
-
+#if DEBUG
+                Puts($"Found {name}");
+#endif
                 var width = monument.Bounds.extents;
                 if(monument.name.Contains("cave"))
                 {
+#if DEBUG
+                    Puts("  Adding to cave list");
+#endif
                     cavePos.Add(name, monument.transform.position);
                 }
                 else
                 {
+#if DEBUG
+//                    Puts("  Adding to monument list");
+#endif
                     if(width.z < 1)
                     {
                         width.z = configData.Settings.DefaultMonumentSize;
@@ -978,6 +1009,8 @@ namespace Oxide.Plugins
                         return;
                     }
                     player.SetParent(null, true, true);
+//                    if(player.isMounted)
+//                        player.DismountObject();
                     TeleportToPlayer(player, target);
                     PrintMsgL(player, "AdminTP", target.displayName);
                     Puts(_("LogTeleport", null, player.displayName, target.displayName));
@@ -2775,18 +2808,20 @@ namespace Oxide.Plugins
             {
                 var cavename = entry.Key;
                 float realdistance = 0f;
-                if(cavename.Contains("Large"))
+
+                if(cavename.Contains("Small"))
                 {
-                    realdistance = 75f;
+                    realdistance = configData.Settings.CaveDistanceSmall;
+                }
+                else if(cavename.Contains("Large"))
+                {
+                    realdistance = configData.Settings.CaveDistanceLarge;
                 }
                 else if(cavename.Contains("Medium"))
                 {
-                    realdistance =  50f;
+                    realdistance = configData.Settings.CaveDistanceMedium;
                 }
-                else
-                {
-                    realdistance = 20f;
-                }
+
                 var cavevector = entry.Value;
                 cavevector.y = pos.y;
                 var cpos = cavevector.ToString();
@@ -2794,7 +2829,16 @@ namespace Oxide.Plugins
 
                 if(dist < realdistance)
                 {
+#if DEBUG
+                    Puts($"NearCave: {cavename} nearby.");
+#endif
                     return cavename;
+                }
+                else
+                {
+#if DEBUG
+                    Puts("NearCave: Not near this cave.");
+#endif
                 }
             }
             return null;
@@ -2816,8 +2860,11 @@ namespace Oxide.Plugins
             }
             if(configData.Home.AllowCave == false)
             {
-                string monname = NearCave(player);
-                if(monname != null)
+#if DEBUG
+                Puts("Checking cave distance...");
+#endif
+                string cavename = NearCave(player);
+                if(cavename != null)
                 {
                     return "TooCloseToCave";
                 }
