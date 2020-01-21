@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.79", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.80", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -113,6 +113,7 @@ namespace Oxide.Plugins
             public bool InterruptTPOnHurt { get; set; }
             public bool InterruptTPOnCold { get; set; }
             public bool InterruptTPOnHot { get; set; }
+            public bool InterruptTPOnHostile { get; set; }
             public bool InterruptTPOnSafe { get; set; }
             public bool InterruptTPOnBalloon { get; set; }
             public bool InterruptTPOnCargo { get; set; }
@@ -274,6 +275,7 @@ namespace Oxide.Plugins
                     InterruptTPOnHurt = true,
                     InterruptTPOnCold = false,
                     InterruptTPOnHot = false,
+                    InterruptTPOnHostile = true,
                     MinimumTemp = 0f,
                     MaximumTemp = 40f,
                     InterruptTPOnSafe = true,
@@ -472,6 +474,8 @@ namespace Oxide.Plugins
                 {"TPWounded", "You can't teleport while wounded!"},
                 {"TPTooCold", "You're too cold to teleport!"},
                 {"TPTooHot", "You're too hot to teleport!"},
+                {"TPHostile", "Can't teleport to outpost or bandit when hostile!"},
+                {"HostileTimer", "Teleport available in {0} minutes."},
                 {"TPMounted", "You can't teleport while seated!"},
                 {"TPBuildingBlocked", "You can't teleport while in a building blocked zone!"},
                 {"TPAboveWater", "You can't teleport while above water!"},
@@ -1316,6 +1320,10 @@ namespace Oxide.Plugins
                 if(configData.Version < new VersionNumber(1, 0, 77))
                 {
                     configData.Settings.StrictFoundationCheck = false;
+                }
+                if(configData.Version < new VersionNumber(1, 0, 80))
+                {
+                    configData.Settings.InterruptTPOnHostile = true;
                 }
                 if(configData.Settings.MaximumTemp < 1)
                 {
@@ -3228,6 +3236,12 @@ namespace Oxide.Plugins
                     if(err != null)
                     {
                         PrintMsgL(player, err);
+                        if(err == "TPHostile")
+                        {
+                            var pc = player as BaseCombatEntity;
+                            string pt = ((int)Math.Abs(pc.unHostileTime - Time.realtimeSinceStartup) / 60).ToString();
+                            PrintMsgL(player, "HostileTimer", pt);
+                        }
                         return;
                     }
                     cooldown = GetLower(player, configData.Outpost.VIPCooldowns, configData.Outpost.Cooldown);
@@ -3258,6 +3272,12 @@ namespace Oxide.Plugins
                     if(err != null)
                     {
                         PrintMsgL(player, err);
+                        if(err == "TPHostile")
+                        {
+                            var pc = player as BaseCombatEntity;
+                            string pt = ((int)Math.Abs(pc.unHostileTime - Time.realtimeSinceStartup) / 60).ToString();
+                            PrintMsgL(player, "HostileTimer", pt);
+                        }
                         return;
                     }
                     cooldown = GetLower(player, configData.Bandit.VIPCooldowns, configData.Bandit.Cooldown);
@@ -4048,6 +4068,19 @@ namespace Oxide.Plugins
                 {
                     return "TooCloseToCave";
                 }
+            }
+
+            if(configData.Settings.InterruptTPOnHostile && (mode == "bandit" || mode == "outpost"))
+            {
+                try
+                {
+                    var pc = player as BaseCombatEntity;
+                    if(pc.IsHostile())
+                    {
+                        return "TPHostile";
+                    }
+                }
+                catch {}
             }
             if(player.isMounted && configData.Settings.InterruptTPOnMounted == true)
                 return "TPMounted";
