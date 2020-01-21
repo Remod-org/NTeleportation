@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.85", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.86", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -4227,12 +4227,22 @@ namespace Oxide.Plugins
 #if DEBUG
                             Puts("Player owns block");
 #endif
-                            if(ubb)
+
+                            if(!player.IsBuildingBlocked(targetLocation, new Quaternion(), block.bounds))
                             {
+#if DEBUG
+                                Puts("Player not BuildingBlocked. Likely unprotected building.");
+#endif
                                 denied = false;
+                                break;
+                            }
+                            else if(ubb)
+                            {
 #if DEBUG
                                 Puts("Player not blocked because UsableIntoBuildingBlocked=true");
 #endif
+                                denied = false;
+                                break;
                             }
                             else
                             {
@@ -4307,6 +4317,10 @@ namespace Oxide.Plugins
                         return false;
                     }
                 }
+#if DEBUG
+                Puts("Building found but there was no auth.");
+#endif
+                return false;
             }
 #if DEBUG
             Puts("No cupboard or building found - we cannot tell the status of this block");
