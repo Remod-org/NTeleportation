@@ -19,7 +19,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.44", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.45", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -304,7 +304,7 @@ namespace Oxide.Plugins
                 {"HomeFoundationNotOwned", "You can't use home on someone else's house."},
                 {"HomeFoundationUnderneathFoundation", "You can't use home on a foundation that is underneath another foundation."},
                 {"HomeFoundationNotFriendsOwned", "You or a friend need to own the house to use home!"},
-                {"HomeRemovedInvalid", "Your home '{0}' was removed because it's not on a foundation or owned!"},
+                {"HomeRemovedInvalid", "Your home '{0}' was removed because not on a foundation or not owned!"},
                 {"HomeRemovedInsideBlock", "Your home '{0}' was removed because inside a foundation!"},
                 {"HomeRemove", "You have removed your home {0}!"},
                 {"HomeDelete", "You have removed {0}'s home '{1}'!"},
@@ -2796,7 +2796,6 @@ namespace Oxide.Plugins
             }
             return false;
         }
-
         private string CheckInsideBlock(Vector3 targetLocation)
         {
             List<BuildingBlock> blocks = Pool.GetList<BuildingBlock>();
@@ -2954,7 +2953,17 @@ namespace Oxide.Plugins
 
         private bool UnderneathFoundation(Vector3 position)
         {
+            // Check for foundation half-height above where home was set
             foreach(var hit in Physics.RaycastAll(position, up, 2f, buildingLayer))
+            {
+                if (hit.GetCollider().name.Contains("foundation"))
+                {
+                    return true;
+                }
+            }
+            // Check for foundation full-height above where home was set
+            // Since you can't see from inside via ray, start above.
+            foreach(var hit in Physics.RaycastAll(position + up + up + up + up, down, 2f, buildingLayer))
             {
                 if (hit.GetCollider().name.Contains("foundation"))
                 {
