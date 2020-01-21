@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.52", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.53", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -98,6 +98,7 @@ namespace Oxide.Plugins
             public bool InterruptTPOnSafe { get; set; }
             public bool InterruptTPOnBalloon { get; set; }
             public bool InterruptTPOnCargo { get; set; }
+            public bool InterruptTPOnRig { get; set; }
             public bool InterruptTPOnLift { get; set; }
             public bool InterruptTPOnMonument { get; set; }
             public float CaveDistanceSmall { get; set; }
@@ -238,6 +239,7 @@ namespace Oxide.Plugins
                     InterruptTPOnSafe = true,
                     InterruptTPOnBalloon = true,
                     InterruptTPOnCargo = true,
+                    InterruptTPOnRig = false,
                     InterruptTPOnLift = true,
                     InterruptTPOnMonument = false,
                     CaveDistanceSmall = 40f,
@@ -394,6 +396,7 @@ namespace Oxide.Plugins
                 {"TPTargetInsideBlock", "You can't teleport into a foundation!"},
                 {"TPSwimming", "You can't teleport while swimming!"},
                 {"TPCargoShip", "You can't teleport from the cargo ship!"},
+                {"TPOilRig", "You can't teleport from the oil rig!"},
                 {"TPHotAirBalloon", "You can't teleport to or from a hot air balloon!"},
                 {"TPLift", "You can't teleport while in an elevator or bucket lift!"},
                 {"TPBucketLift", "You can't teleport while in a bucket lift!"},
@@ -692,6 +695,398 @@ namespace Oxide.Plugins
                 {"LogTeleportPlayer", "{0} teleported {1} to {2}."},
                 {"LogTeleportBack", "{0} teleported back to previous location."}
             }, this);
+
+            lang.RegisterMessages(new Dictionary<string, string>
+            {
+                {"AdminTP", "Ты телепортировался в {0}!"},
+                {"AdminTPTarget", "{0} телепортировался к тебе!"},
+                {"AdminTPPlayers", "Ты телепортировался {0} к {1}!"},
+                {"AdminTPPlayer", "{0} телепортировался вам {1}!"},
+                {"AdminTPPlayerTarget", "{0} телепортированный {1} для вас!"},
+                {"AdminTPCoordinates", "Ты телепортировался в {0}!"},
+                {"AdminTPTargetCoordinates", "Ты телепортировался {0} к {1}!"},
+                {"AdminTPOutOfBounds", "Вы пытались телепортироваться в набор координат за пределами границ карты!"},
+                {"AdminTPBoundaries", "X и Z ценности должны быть между -{0} и {0} а Y значение должно быть между -100 и 2000!"},
+                {"AdminTPLocation", "Ты телепортировался в {0}!"},
+                {"AdminTPLocationSave", "Вы сохранили текущее местоположение!"},
+                {"AdminTPLocationRemove", "Вы удалили местоположение {0}!"},
+                {"AdminLocationList", "Доступны следующие местоположения,"},
+                {"AdminLocationListEmpty", "Вы не сохранили никаких мест!"},
+                {"AdminTPBack", "Ты телепортировался обратно на прежнее место!"},
+                {"AdminTPBackSave", "Ваше предыдущее местоположение было сохранено, используйте /tpb телепортироваться обратно!"},
+                {"AdminTPTargetCoordinatesTarget", "{0} телепортировался вам {1}!"},
+                {"AdminTPConsoleTP", "Тебя телепортировали в {0}"},
+                {"AdminTPConsoleTPPlayer", "Тебя телепортировали в {0}"},
+                {"AdminTPConsoleTPPlayerTarget", "{0} телепортировался к тебе!"},
+                {"HomeTP", "Ты телепортировался в свой дом '{0}'!"},
+                {"HomeAdminTP", "Ты телепортировался в {0}'s дом '{1}'!"},
+                {"HomeSave", "Вы сохранили текущее местоположение в качестве своего дома!"},
+                {"HomeNoFoundation", "Вы можете использовать только расположение дома на фундаменте!"},
+                {"HomeFoundationNotOwned", "Ты не можешь использовать дом на чужом доме."},
+                {"HomeFoundationUnderneathFoundation", "Вы не можете использовать home на фундаменте, который находится под другим фундаментом."},
+                {"HomeFoundationNotFriendsOwned", "Вы или друг должны владеть домом, чтобы использовать дом!"},
+                {"HomeRemovedInvalid", "Твой дом '{0}' убрали, потому что не на фундаменте или не в собственности!"},
+                {"HomeRemovedInsideBlock", "Твой дом '{0}' убрали, потому что внутри фундамент!"},
+                {"HomeRemove", "Вы удалили свой дом {0}!"},
+                {"HomeDelete", "Вы удалили {0}'s дом '{1}'!"},
+                {"HomeList", "Доступны следующие дома,"},
+                {"HomeListEmpty", "Вы не спасли ни одного дома!"},
+                {"HomeMaxLocations", "Не в состоянии установить свой дом здесь, вы достигли максимума {0} дома!"},
+                {"HomeQuota", "Вы установили {0} максимума {1} дома!"},
+                {"HomeTPStarted", "Телепортация в ваш дом {0} в {1} секунды!"},
+                {"PayToHome", "Стандартная оплата {0} применяется ко всем домашним телепортам!"},
+                {"PayToTown", "Стандартная оплата {0} применяется ко всем городским телепортам!"},
+                {"PayToTPR", "Стандартная оплата {0} распространяться на всех tprs!"},
+                {"HomeTPCooldown", "Ваш телепорт в настоящее время находится на перезарядке. Вам придется подождать {0} для следующего телепорта."},
+                {"HomeTPCooldownBypass", "Ваш телепорт в настоящее время был на перезарядке. Вы решили обойти это, заплатив {0} с вашего баланса."},
+                {"HomeTPCooldownBypassF", "Ваш телепорт в настоящее время находится на перезарядке. У вас недостаточно средств - {0} - обходить."},
+                {"HomeTPCooldownBypassP", "Вы можете заплатить {0} чтобы обойти это охлаждение."},
+                {"HomeTPCooldownBypassP2", "Тип /home NAME {0}."},
+                {"HomeTPLimitReached", "Вы достигли дневного предела {0} телепорты сегодня!"},
+                {"HomeTPAmount", "У вас есть {0} домашние телепорты ушли сегодня!"},
+                {"HomesListWiped", "Вы стерли все сохраненные домашние местоположения!"},
+                {"HomeTPBuildingBlocked", "Вы не можете установить свой дом, если вам не разрешено строить в этой зоне!"},
+                {"HomeTPSwimming", "Вы не можете установить свой дом во время плавания!"},
+                {"HomeTPCrafting", "Вы не можете установить свой дом во время крафта!"},
+                {"Request", "Вы запросили телепорт на {0}!"},
+                {"RequestTarget", "{0} просят телепортироваться к вам! Использовать '/tpa' принять!"},
+                {"PendingRequest", "У вас уже есть запрос в ожидании, отменить этот запрос или ждать, пока он не будет принят или тайм-аут!"},
+                {"PendingRequestTarget", "Игрок, которому вы хотите телепортироваться, уже имеет ожидающий запрос, повторите попытку позже!"},
+                {"NoPendingRequest", "У вас нет запроса на телепортацию!"},
+                {"AcceptOnRoof", "Вы не можете принять телепорт, пока вы на потолке, добраться до уровня земли!"},
+                {"Accept", "{0} принял ваш запрос на телепортацию! Телепортироваться в {1} секунды!"},
+                {"AcceptTarget", "Вы приняли запрос на телепортацию {0}!"},
+                {"NotAllowed", "Вы не имеете права использовать эту команду!"},
+                {"Success", "Ты телепортировался в {0}!"},
+                {"SuccessTarget", "{0} телепортировался к тебе!"},
+                {"Cancelled", "Ваш телепорт запрос {0} был отменен!"},
+                {"CancelledTarget", "{0} запрос на телепортацию был отменен!"},
+                {"TPCancelled", "Твой телепорт был отменен!"},
+                {"TPCancelledTarget", "{0} отменен телепорт!"},
+                {"TPYouCancelledTarget", "Вы отменили {0} телепортацию!"},
+                {"TimedOut", "{0} не ответил на ваш запрос!"},
+                {"TimedOutTarget", "Ты не ответил. {0}'s телепортируйте запрос вовремя!"},
+                {"TargetDisconnected", "{0} отключился, телепорт отменен!"},
+                {"TPRCooldown", "Ваши запросы на телепортацию в настоящее время находятся на перезарядке. Вам придется подождать {0} отправить следующий запрос на телепортацию."},
+                {"TPRCooldownBypass", "Ваш запрос на телепортацию был на перезарядке. Вы решили обойти это, заплатив {0} с вашего баланса."},
+                {"TPRCooldownBypassF", "Ваш телепорт в настоящее время находится на перезарядке. У вас недостаточно средств - {0} - обходить."},
+                {"TPRCooldownBypassP", "Вы можете заплатить {0} чтобы обойти это охлаждение."},
+                {"TPMoney", "{0} вычитается из вашего счета!"},
+                {"TPNoMoney", "У вас нет {0} в любом аккаунте!"},
+                {"TPRCooldownBypassP2", "Тип /tpr {0}."},
+                {"TPRCooldownBypassP2a", "Тип /tpr NAME {0}."},
+                {"TPRLimitReached", "Вы достигли дневного предела {0} телепорт просит сегодня!"},
+                {"TPRAmount", "У вас есть {0} телепорт просит оставить сегодня!"},
+                {"TPRTarget", "Ваша цель в настоящее время недоступна!"},
+                {"TPDead", "Ты не можешь телепортироваться, будучи мертвым!"},
+                {"TPWounded", "Ты не можешь телепортироваться, пока ранен!"},
+                {"TPTooCold", "Ты слишком замерз, чтобы телепортироваться!"},
+                {"TPTooHot", "Ты слишком горячий, чтобы телепортироваться!"},
+                {"TPMounted", "Ты не можешь телепортироваться сидя!"},
+                {"TPBuildingBlocked", "Вы не можете телепортироваться в заблокированной зоне здания!"},
+                {"TPTargetBuildingBlocked", "Вы не можете телепортироваться в заблокированной зоне здания!"},
+                {"TPTargetInsideBlock", "Ты не можешь телепортироваться в Фонд!"},
+                {"TPSwimming", "Ты не можешь телепортироваться во время плавания!"},
+                {"TPCargoShip", "Ты не можешь телепортироваться с грузового корабля!"},
+                {"TPOilRig", "Ты не можешь телепортироваться с нефтяная вышка!"},
+                {"TPHotAirBalloon", "Вы не можете телепортироваться на воздушный шар или с него!"},
+                {"TPLift", "Вы не можете телепортироваться в лифте или ковшовом подъемнике!"},
+                {"TPBucketLift", "Вы не можете телепортироваться, находясь в ковшовом подъемнике!"},
+                {"TPRegLift", "Ты не можешь телепортироваться в лифте!"},
+                {"TPSafeZone", "Ты не можешь телепортироваться из безопасной зоны!"},
+                {"TPCrafting", "Вы не можете телепортироваться во время крафта!"},
+                {"TPBlockedItem", "Вы не можете телепортироваться во время переноски, {0}!"},
+                {"TooCloseToMon", "Ты не можешь телепортироваться так близко к {0}!"},
+                {"TooCloseToCave", "Ты не можешь телепортироваться так близко к пещере!"},
+                {"HomeTooCloseToCave", "Нельзя сидеть дома так близко к пещере!"},
+                {"TownTP", "Ты телепортировался в город!"},
+                {"TownTPNotSet", "Город в настоящее время не установлен!"},
+                {"TownTPDisabled", "Город в настоящее время не включен!"},
+                {"TownTPLocation", "Вы установили местоположение города в {0}!"},
+                {"TownTPStarted", "Телепортация в город в {0} секунды!"},
+                {"TownTPCooldown", "Ваш телепорт в настоящее время находится на перезарядке. Вам придется подождать {0} для следующего телепорта."},
+                {"TownTPCooldownBypass", "Ваш запрос на телепортацию был на перезарядке. Вы решили обойти это, заплатив {0} с вашего баланса."},
+                {"TownTPCooldownBypassF", "Ваш телепорт в настоящее время находится на перезарядке. У вас недостаточно средств - {0} - обходить."},
+                {"TownTPCooldownBypassP", "Вы можете заплатить {0} чтобы обойти это охлаждение."},
+                {"TownTPCooldownBypassP2", "Тип /town {0}."},
+                {"TownTPLimitReached", "Вы достигли дневного предела {0} телепорты сегодня!"},
+                {"TownTPAmount", "У вас есть {0} городские телепорты ушли сегодня!"},
+                {"Interrupted", "Ваш телепорт был прерван!"},
+                {"InterruptedTarget", "{0}'s телепорт был прерван!"},
+                {"Unlimited", "Unlimited"},
+                {
+                    "TPInfoGeneral", string.Join(NewLine, new[]
+                    {
+                        "Пожалуйста, укажите модуль, который вы хотите просмотреть.",
+                        "Имеющиеся модули, "
+                    })
+                },
+                {
+                    "TPHelpGeneral", string.Join(NewLine, new[]
+                    {
+                        "/tpinfo - Показывает ограничения и кулдауны.",
+                        "Пожалуйста, укажите модуль, который вы хотите просмотреть в справке.",
+                        "Имеющиеся модули, "
+                    })
+                },
+                {
+                    "TPHelpadmintp", string.Join(NewLine, new[]
+                    {
+                        "Как администратор Вы имеете доступ к следующим командам,",
+                        "/tp \"targetplayer\" - Телепортирует себя к целевому игроку.",
+                        "/tp \"player\" \"targetplayer\" - Телепортирует игрока к целевому игроку.",
+                        "/tp x y z - Телепортирует вас в набор координат.",
+                        "/tpl - Показывает список сохраненных местоположений.",
+                        "/tpl \"location name\" - Телепортирует вас в сохраненное место.",
+                        "/tpsave \"location name\" - Сохраняет текущую позицию в качестве имени местоположения.",
+                        "/tpremove \"location name\" - Удаляет местоположение из сохраненного списка.",
+                        "/tpb - Телепортирует вас обратно в то место, где вы были до телепортации.",
+                        "/home radius \"radius\" - Найти все дома в радиусе.",
+                        "/home delete \"player name|id\" \"home name\" - Удалите дом из плеера.",
+                        "/home tp \"player name|id\" \"name\" - Телепортирует вас на главную локацию с именем 'name' от игрока.",
+                        "/home homes \"player name|id\" - Показывает список всех домов из плеера."
+                    })
+                },
+                {
+                    "TPHelphome", string.Join(NewLine, new[]
+                    {
+                        "С помощью следующих команд вы можете установить свое домашнее местоположение для телепортации обратно в,",
+                        "/home add \"name\" - Сохраняет текущую позицию в качестве имени местоположения.",
+                        "/home list - Показывает список всех сохраненных местоположений.",
+                        "/home remove \"name\" - Удаляет местоположение сохраненных домов.",
+                        "/home \"name\" - Телепортирует вас на родное место."
+                    })
+                },
+                {
+                    "TPHelptpr", string.Join(NewLine, new[]
+                    {
+                        "С помощью этих команд вы можете запросить телепортацию к игроку или принять чей-либо запрос,",
+                        "/tpr \"player name\" - Отправляет запрос на телепортацию игроку.",
+                        "/tpa - Принимает входящий запрос телепорта.",
+                        "/tpc - Отменить телепортацию или запрос."
+                    })
+                },
+                {
+                    "TPSettingsGeneral", string.Join(NewLine, new[]
+                    {
+                        "Пожалуйста, укажите модуль, который вы хотите просмотреть настройки.",
+                        "Имеющиеся модули,"
+                    })
+                },
+                {
+                    "TPSettingshome", string.Join(NewLine, new[]
+                    {
+                        "В домашней системе включены текущие настройки,",
+                        "Время между телепортами, {0}",
+                        "Ежедневное количество телепортов, {1}",
+                        "Количество сохраненных домашних местоположений, {2}"
+                    })
+                },
+                {
+                    "TPSettingstpr", string.Join(NewLine, new[]
+                    {
+                        "TPR В системе включены текущие настройки,",
+                        "Время между телепортами, {0}",
+                        "Ежедневное количество телепортов, {1}"
+                    })
+                },
+                {
+                    "TPSettingstown", string.Join(NewLine, new[]
+                    {
+                        "Town В системе включены текущие настройки,",
+                        "Время между телепортами, {0}",
+                        "Ежедневное количество телепортов, {1}"
+                    })
+                },
+                {"PlayerNotFound", "Не удалось найти указанного игрока, повторите попытку!"},
+                {"MultiplePlayers", "Найдено несколько игроков, {0}"},
+                {"CantTeleportToSelf", "Ты не можешь телепортироваться к себе!"},
+                {"CantTeleportPlayerToSelf", "Вы не можете телепортировать игрока к себе!"},
+                {"TeleportPending", "Вы не можете инициировать другой телепорт, пока у вас есть телепорт в ожидании!"},
+                {"TeleportPendingTarget", "Ты не можешь просить телепортации у того, кто собирается телепортироваться!"},
+                {"LocationExists", "Место с таким именем уже существует в {0}!"},
+                {"LocationExistsNearby", "Место с именем {0} уже существует рядом с этой позицией!"},
+                {"LocationNotFound", "Не мог найти место с таким именем!"},
+                {"NoPreviousLocationSaved", "Предыдущее местоположение не сохранено!"},
+                {"HomeExists", "Вы уже сохранили расположение дома под этим именем!"},
+                {"HomeExistsNearby", "Расположение дома с именем {0} уже существует рядом с этой позицией!"},
+                {"HomeNotFound", "Не мог найти свой дом с таким именем!"},
+                {"InvalidCoordinates", "Введенные вами координаты недействительны!"},
+                {"InvalidHelpModule", "Неверный модуль поставляется!"},
+                {"InvalidCharacter", "Вы использовали недопустимый символ, пожалуйста, ограничьте себя буквами от А до Я и цифрами."},
+                {
+                    "SyntaxCommandTP", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tp команда следующим образом,",
+                        "/tp \"targetplayer\" - Телепортирует себя к целевому игроку.",
+                        "/tp \"player\" \"targetplayer\" - Телепортирует игрока к целевому игроку.",
+                        "/tp x y z - Телепортирует вас в набор координат.",
+                        "/tp \"player\" x y z - Телепортирует игрока в набор координат."
+                    })
+                },
+                {
+                    "SyntaxCommandTPL", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tpl команда следующим образом,",
+                        "/tpl - Показывает список сохраненных местоположений.",
+                        "/tpl \"location name\" - Телепортирует вас в сохраненное место."
+                    })
+                },
+                {
+                    "SyntaxCommandTPSave", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tpsave команда следующим образом,",
+                        "/tpsave \"location name\" - Сохраняет текущую позицию как 'location name'."
+                    })
+                },
+                {
+                    "SyntaxCommandTPRemove", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tpremove команда следующим образом,",
+                        "/tpremove \"location name\" - Удаляет расположение с именем 'location name'."
+                    })
+                },
+                {
+                    "SyntaxCommandTPN", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tpn команда следующим образом,",
+                        "/tpn \"targetplayer\" - Телепортирует себя на расстояние по умолчанию позади целевого игрока.",
+                        "/tpn \"targetplayer\" \"distance\" - Телепортирует вас на указанное расстояние позади целевого игрока."
+                    })
+                },
+                {
+                    "SyntaxCommandSetHome", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /home add команда следующим образом,",
+                        "/home add \"name\" - Сохранение текущего местоположения в качестве вашего дома с именем 'name'."
+                    })
+                },
+                {
+                    "SyntaxCommandRemoveHome", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /home remove команда следующим образом,",
+                        "/home remove \"name\" - Удаляет расположение дома с именем 'name'."
+                    })
+                },
+                {
+                    "SyntaxCommandHome", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /home команда следующим образом,",
+                        "/home \"name\" - Телепортирует себя в свой дом с именем 'name'.",
+                        "/home \"name\" pay - Телепортирует себя в свой дом с именем 'name', избежать перезарядки, заплатив за это.",
+                        "/home add \"name\" - Сохранение текущего местоположения в качестве вашего дома с именем 'name'.",
+                        "/home list - Показывает список всех сохраненных домашних местоположений.",
+                        "/home remove \"name\" - Удаляет расположение дома с именем 'name'."
+                    })
+                },
+                {
+                    "SyntaxCommandHomeAdmin", string.Join(NewLine, new[]
+                    {
+                        "/home radius \"radius\" - Показывает список всех домов в radius(10).",
+                        "/home delete \"player name|id\" \"name\" - Удаляет расположение дома с именем 'name' от игрока.",
+                        "/home tp \"player name|id\" \"name\" - Телепортирует вас на главную локацию с именем 'name' от игрока.",
+                        "/home homes \"player name|id\" - Показывает список всех домов из плеера."
+                    })
+                },
+                {
+                    "SyntaxCommandTown", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /town команда следующим образом,",
+                        "/town - Teleports yourself to town.",
+                        "/town pay - Teleports yourself to town, paying the penalty."
+                    })
+                },
+                {
+                    "SyntaxCommandTownAdmin", string.Join(NewLine, new[]
+                    {
+                        "/town set - Сохраняет текущее местоположение как town."
+                    })
+                },
+                {
+                    "SyntaxCommandHomeDelete", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /home delete команда следующим образом,",
+                        "/home delete \"player name|id\" \"name\" - Удаляет расположение дома с именем 'name' от игрока."
+                    })
+                },
+                {
+                    "SyntaxCommandHomeAdminTP", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /home tp команда следующим образом,",
+                        "/home tp \"player name|id\" \"name\" - Телепортирует вас на главную локацию с именем 'name' от игрока."
+                    })
+                },
+                {
+                    "SyntaxCommandHomeHomes", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /home homes команда следующим образом,",
+                        "/home homes \"player name|id\" - Показывает список всех домов из плеера."
+                    })
+                },
+                {
+                    "SyntaxCommandListHomes", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /home list команда следующим образом,",
+                        "/home list - Показывает список всех сохраненных домашних местоположений."
+                    })
+                },
+                {
+                    "SyntaxCommandTPR", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tpr команда следующим образом,",
+                        "/tpr \"player name\" - Отправляет запрос на телепортацию 'player name'."
+                    })
+                },
+                {
+                    "SyntaxCommandTPA", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tpa команда следующим образом,",
+                        "/tpa - Принимает входящий запрос телепорта."
+                    })
+                },
+                {
+                    "SyntaxCommandTPC", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только /tpc команда следующим образом,",
+                        "/tpc - Отменяет телепорт запросу."
+                    })
+                },
+                {
+                    "SyntaxConsoleCommandToPos", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только teleport.topos console команда следующим образом,",
+                        " > teleport.topos \"player\" x y z"
+                    })
+                },
+                {
+                    "SyntaxConsoleCommandToPlayer", string.Join(NewLine, new[]
+                    {
+                        "Произошла Синтаксическая Ошибка!",
+                        "Вы можете использовать только teleport.toplayer console команда следующим образом,",
+                        " > teleport.toplayer \"player\" \"target player\""
+                    })
+                },
+                {"LogTeleport", "{0} телепортироваться {1}."},
+                {"LogTeleportPlayer", "{0} телепортированный {1} к {2}."},
+                {"LogTeleportBack", "{0} телепортировался на прежнее место."}
+            }, this, "ru");
         }
 
         private void Loaded()
@@ -959,7 +1354,15 @@ namespace Oxide.Plugins
             foreach (MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
             {
                 if(monument.name.Contains("power_sub")) continue;
-                string name = Regex.Match(monument.name, @"\w{6}\/(.+\/)(.+)\.(.+)").Groups[2].Value.Replace("_", " ").Replace(" 1", "").Titleize();
+                string name = null;
+                if(monument.name == "OilrigAI")
+                {
+                    name = "Oilrig";
+                }
+                else
+                {
+                    name = Regex.Match(monument.name, @"\w{6}\/(.+\/)(.+)\.(.+)").Groups[2].Value.Replace("_", " ").Replace(" 1", "").Titleize();
+                }
                 if(monPos.ContainsKey(name)) continue;
                 if(cavePos.ContainsKey(name)) name = name + RandomString();
 #if DEBUG
@@ -975,9 +1378,6 @@ namespace Oxide.Plugins
                 }
                 else
                 {
-#if DEBUG
-//                    Puts("  Adding to monument list");
-#endif
                     if(width.z < 1)
                     {
                         width.z = configData.Settings.DefaultMonumentSize;
@@ -2843,16 +3243,18 @@ namespace Oxide.Plugins
             }
             return null;
         }
+
         private string CheckPlayer(BasePlayer player, bool build = false, bool craft = false, bool origin = true)
         {
             var onship = player.GetComponentInParent<CargoShip>();
+            //var onrig  = player.GetComponentInParent<OilrigAI>();
             var onballoon = player.GetComponentInParent<HotAirBalloon>();
             var inlift = player.GetComponentInParent<Lift>();
             var pos = player.transform.position;
 
+            string monname = NearMonument(player);
             if(configData.Settings.InterruptTPOnMonument == true)
             {
-                string monname = NearMonument(player);
                 if(monname != null)
                 {
                     return _("TooCloseToMon", player, monname);
@@ -2879,14 +3281,10 @@ namespace Oxide.Plugins
 
             if(player.metabolism.temperature.value <= configData.Settings.MinimumTemp && configData.Settings.InterruptTPOnCold == true)
             {
-                //var temperature = player.metabolism.temperature.value.ToString();
-                //Puts($"Player Temp == {temperature}");
                 return "TPTooCold";
             }
             if(player.metabolism.temperature.value >= configData.Settings.MaximumTemp && configData.Settings.InterruptTPOnHot == true)
             {
-                //var temperature = player.metabolism.temperature.value.ToString();
-                //Puts($"Player Temp == {temperature}");
                 return "TPTooHot";
             }
 
@@ -2894,6 +3292,9 @@ namespace Oxide.Plugins
                 return "TPBuildingBlocked";
             if(player.IsSwimming())
                 return "TPSwimming";
+            // This will have to do until we have a proper parent name for this
+            if(monname == "Oilrig" && configData.Settings.InterruptTPOnRig == true)
+                return "TPOilRig";
             if(onship && configData.Settings.InterruptTPOnCargo == true)
                 return "TPCargoShip";
             if(onballoon && configData.Settings.InterruptTPOnBalloon == true)
