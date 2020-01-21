@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.57", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.58", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -101,6 +101,8 @@ namespace Oxide.Plugins
             public bool InterruptTPOnRig { get; set; }
             public bool InterruptTPOnLift { get; set; }
             public bool InterruptTPOnMonument { get; set; }
+            public bool InterruptTPOnMounted { get; set; }
+            public bool InterruptTPOnSwimming { get; set; }
             public float CaveDistanceSmall { get; set; }
             public float CaveDistanceMedium { get; set; }
             public float CaveDistanceLarge { get; set; }
@@ -242,6 +244,8 @@ namespace Oxide.Plugins
                     InterruptTPOnRig = false,
                     InterruptTPOnLift = true,
                     InterruptTPOnMonument = false,
+                    InterruptTPOnMounted = true,
+                    InterruptTPOnSwimming = true,
                     CaveDistanceSmall = 40f,
                     CaveDistanceMedium = 60f,
                     CaveDistanceLarge = 100f,
@@ -1127,6 +1131,11 @@ namespace Oxide.Plugins
                 {
                     configData.Home.UsableIntoBuildingBlocked = true;
                     configData.TPR.UsableIntoBuildingBlocked = true;
+                }
+                if (configData.Version < new VersionNumber(1, 0, 58))
+                {
+                    configData.Settings.InterruptTPOnMounted = true;
+                    configData.Settings.InterruptTPOnSwimming = true;
                 }
                 if (configData.Settings.MaximumTemp < 1)
                 {
@@ -2320,7 +2329,7 @@ namespace Oxide.Plugins
                         PrintMsgL(player, "TPRCooldownBypass", configData.TPR.Bypass);
                         if(payalso)
                         {
-                            PrintMsgL(player, "PayToTPR", configData.TPR.Bypass);
+                            PrintMsgL(player, "PayToTPR", configData.TPR.Pay);
                         }
                     }
                     else
@@ -2336,6 +2345,10 @@ namespace Oxide.Plugins
                     if(configData.TPR.Bypass > 0 && configData.Settings.BypassCMD != null)
                     {
                         PrintMsgL(player, "TPRCooldownBypassP", configData.TPR.Bypass);
+                        if(payalso)
+                        {
+                            PrintMsgL(player, "PayToTPR", configData.TPR.Pay);
+                        }
                         PrintMsgL(player, "TPRCooldownBypassP2a", configData.Settings.BypassCMD);
                     }
                     return;
@@ -2497,17 +2510,20 @@ namespace Oxide.Plugins
                     }
                     if(UseEconomy())
                     {
-                        if (configData.TPR.Pay > 0 && !CheckEconomy(player, configData.TPR.Pay))
+                        if(configData.TPR.Pay > 0)
                         {
-                            PrintMsgL(player, "InterruptedTarget", originPlayer.displayName);
-                            PrintMsgL(originPlayer, "TPNoMoney", configData.TPR.Pay);
-                            TeleportTimers.Remove(originPlayer.userID);
-                            return;
-                        }
-                        else if (configData.TPR.Pay > 0)
-                        {
-                            CheckEconomy(player, configData.TPR.Pay, true);
-                            PrintMsgL(player, "TPMoney", (double)configData.TPR.Pay);
+                            if(!CheckEconomy(originPlayer, configData.TPR.Pay))
+                            {
+                                PrintMsgL(player, "InterruptedTarget", originPlayer.displayName);
+                                PrintMsgL(originPlayer, "TPNoMoney", configData.TPR.Pay);
+                                TeleportTimers.Remove(originPlayer.userID);
+                                return;
+                            }
+                            else
+                            {
+                                CheckEconomy(originPlayer, configData.TPR.Pay, true);
+                                PrintMsgL(originPlayer, "TPMoney", (double)configData.TPR.Bypass);
+                            }
                         }
                     }
                     Teleport(originPlayer, CheckPosition(player.transform.position));
@@ -3276,7 +3292,7 @@ namespace Oxide.Plugins
                     return "TooCloseToCave";
                 }
             }
-            if(player.isMounted)
+            if(player.isMounted && configData.Settings.InterruptTPOnMounted == true)
                 return "TPMounted";
             if(!player.IsAlive())
                 return "TPDead";
@@ -3295,7 +3311,7 @@ namespace Oxide.Plugins
 
             if(!build && !player.CanBuild())
                 return "TPBuildingBlocked";
-            if(player.IsSwimming())
+            if(player.IsSwimming() && configData.Settings.InterruptTPOnSwimming == true)
                 return "TPSwimming";
             // This will have to do until we have a proper parent name for this
             if(monname != null && monname.Contains("Oilrig") && configData.Settings.InterruptTPOnRig == true)
@@ -3944,6 +3960,13 @@ namespace Oxide.Plugins
             {
                 return Activator.CreateInstance(objectType, comparer) as IDictionary;
             }
+        }
+
+        // FIXME
+        [HookMethod("SendHelpText")]
+        private void SendHelpText(BasePlayer player)
+        {
+            PrintMsgL(player, "<size=14>NTeleportation</size> by <color=#ce422b>RFC1920</color>\n<color=\"#ffd479\">/sethome NAME</color> - Set home on current foundation\n<color=\"#ffd479\">/home NAME</color> - Go to one of your homes\n<color=\"#ffd479\">/home list</color> - List your homes\n<color=\"#ffd479\">/town</color> - Go to town, if set\n/tpb - Go back to previous location\n/tpr PLAYER - Request teleport to PLAYER\n/tpa - Accept teleport request");
         }
     }
 }
