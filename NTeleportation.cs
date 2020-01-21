@@ -1,4 +1,4 @@
-//#define DEBUG
+#define DEBUG
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.64", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.65", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
@@ -2600,7 +2600,7 @@ namespace Oxide.Plugins
                             else
                             {
                                 CheckEconomy(originPlayer, configData.TPR.Pay, true);
-                                PrintMsgL(originPlayer, "TPMoney", (double)configData.TPR.Bypass);
+                                PrintMsgL(originPlayer, "TPMoney", (double)configData.TPR.Pay);
                             }
                         }
                     }
