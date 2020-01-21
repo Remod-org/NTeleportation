@@ -16,7 +16,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("NTeleportation", "RFC1920", "1.0.30", ResourceId = 1832)]
+    [Info("NTeleportation", "RFC1920", "1.0.31", ResourceId = 1832)]
     class NTeleportation : RustPlugin
     {
         private const string NewLine = "\n";
@@ -84,6 +84,7 @@ namespace Oxide.Plugins
             public bool InterruptTPOnHurt { get; set; }
             public Dictionary<string, string> BlockedItems { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             public string BypassCMD { get; set; }
+            public bool UseEconomics { get; set; }
         }
 
         class AdminSettingsData
@@ -203,7 +204,8 @@ namespace Oxide.Plugins
                     TPREnabled = true,
                     TownEnabled = true,
                     InterruptTPOnHurt = true,
-                    BypassCMD = "pay"
+                    BypassCMD = "pay",
+                    UseEconomics = false
                 },
                 Admin = new AdminSettingsData
                 {
@@ -1361,22 +1363,20 @@ namespace Oxide.Plugins
             {
                 var cmdSent = "";
                 double balance = 0;
-                bool eco = false;
                 try
                 {
                     cmdSent = args[1].ToLower();
                 }
                 catch {}
-                try
+
+                if(configData.Settings.UseEconomics && Economics)
                 {
                     balance = (double)Economics?.CallHook("Balance", player.UserIDString);
-                    eco = true;
                 }
-                catch {}
 
                 if(cmdSent == configData.Settings.BypassCMD.ToLower())
                 {
-                    if (configData.Home.Bypass > 0 && (double)balance > configData.Home.Bypass)
+                    if((configData.Settings.UseEconomics && Economics) && configData.Home.Bypass > 0 && (double)balance > configData.Home.Bypass)
                     {
                         var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Home.Bypass);
                         PrintMsgL(player, "HomeTPCooldownBypass", configData.Home.Bypass);
@@ -1387,7 +1387,7 @@ namespace Oxide.Plugins
                         return;
                     }
                 }
-                else if(eco == true)
+                else if(configData.Settings.UseEconomics && Economics)
                 {
                     var remain = cooldown - (timestamp - homeData.Teleports.Timestamp);
                     PrintMsgL(player, "HomeTPCooldown", FormatTime(remain));
@@ -1428,10 +1428,13 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "TPBlockedItem", err);
                 return;
             }
-            if (configData.Home.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Home.Pay)
+            if(configData.Settings.UseEconomics && Economics)
             {
-                PrintMsgL(player, "TPMoney", configData.Home.Pay);
-                return;
+                if (configData.Home.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Home.Pay)
+                {
+                    PrintMsgL(player, "TPMoney", configData.Home.Pay);
+                    return;
+                }
             }
             var countdown = GetLower(player, configData.Home.VIPCountdowns, configData.Home.Countdown);
             TeleportTimers[player.userID] = new TeleportTimer
@@ -1479,17 +1482,23 @@ namespace Oxide.Plugins
                         changedHome = true;
                         return;
                     }
-                    if (configData.Home.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Home.Pay)
+                    if(configData.Settings.UseEconomics && Economics)
                     {
-                        PrintMsgL(player, "Interrupted");
-                        PrintMsgL(player, "TPMoney", configData.Home.Pay);
-                        TeleportTimers.Remove(player.userID);
-                        return;
+                        if (configData.Home.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Home.Pay)
+                        {
+                            PrintMsgL(player, "Interrupted");
+                            PrintMsgL(player, "TPMoney", configData.Home.Pay);
+                            TeleportTimers.Remove(player.userID);
+                            return;
+                        }
                     }
                     Teleport(player, location);
                     homeData.Teleports.Amount++;
                     homeData.Teleports.Timestamp = timestamp;
-                    if (configData.Home.Pay > 0) Economics?.CallHook("Withdraw", player.UserIDString, configData.Home.Pay);
+                    if(configData.Settings.UseEconomics && Economics)
+                    {
+                        if (configData.Home.Pay > 0) Economics?.CallHook("Withdraw", player.UserIDString, configData.Home.Pay);
+                    }
                     changedHome = true;
                     PrintMsgL(player, "HomeTP", args[0]);
                     if (limit > 0) PrintMsgL(player, "HomeTPAmount", limit - homeData.Teleports.Amount);
@@ -1631,22 +1640,19 @@ namespace Oxide.Plugins
             {
                 var cmdSent = "";
                 double balance = 0;
-                bool eco = false;
                 try
                 {
                     cmdSent = args[0].ToLower();
                 }
                 catch {}
-                try
+                if(configData.Settings.UseEconomics && Economics)
                 {
                     balance = (double)Economics?.CallHook("Balance", player.UserIDString);
-                    eco = true;
                 }
-                catch {}
 
                 if(cmdSent == configData.Settings.BypassCMD.ToLower())
                 {
-                    if (configData.TPR.Bypass > 0 && (double)balance > configData.TPR.Bypass)
+                    if((configData.Settings.UseEconomics && Economics) && configData.TPR.Bypass > 0 && (double)balance > configData.TPR.Bypass)
                     {
                         var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.TPR.Bypass);
                         PrintMsgL(player, "TPRCooldownBypass", configData.TPR.Bypass);
@@ -1657,7 +1663,7 @@ namespace Oxide.Plugins
                         return;
                     }
                 }
-                else if(eco == true)
+                else if(configData.Settings.UseEconomics && Economics)
                 {
                     var remain = cooldown - (timestamp - tprData.Timestamp);
                     PrintMsgL(player, "TPRCooldown", FormatTime(remain));
@@ -1719,10 +1725,13 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "TPBlockedItem", err);
                 return;
             }
-            if (configData.TPR.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.TPR.Pay)
+            if(configData.Settings.UseEconomics && Economics)
             {
-                PrintMsgL(player, "TPMoney", configData.TPR.Pay);
-                return;
+                if (configData.TPR.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.TPR.Pay)
+                {
+                    PrintMsgL(player, "TPMoney", configData.TPR.Pay);
+                    return;
+                }
             }
             PlayersRequests[player.userID] = target;
             PlayersRequests[target.userID] = player;
@@ -1827,18 +1836,24 @@ namespace Oxide.Plugins
                         TeleportTimers.Remove(originPlayer.userID);
                         return;
                     }
-                    if (configData.TPR.Pay > 0 && (double)(Economics?.CallHook("Balance", originPlayer.UserIDString) ?? 0) < configData.TPR.Pay)
+                    if(configData.Settings.UseEconomics && Economics)
                     {
-                        PrintMsgL(player, "InterruptedTarget", originPlayer.displayName);
-                        PrintMsgL(originPlayer, "TPMoney", configData.TPR.Pay);
-                        TeleportTimers.Remove(originPlayer.userID);
-                        return;
+                        if (configData.TPR.Pay > 0 && (double)(Economics?.CallHook("Balance", originPlayer.UserIDString) ?? 0) < configData.TPR.Pay)
+                        {
+                            PrintMsgL(player, "InterruptedTarget", originPlayer.displayName);
+                            PrintMsgL(originPlayer, "TPMoney", configData.TPR.Pay);
+                            TeleportTimers.Remove(originPlayer.userID);
+                            return;
+                        }
                     }
                     Teleport(originPlayer, CheckPosition(player.transform.position));
                     var tprData = TPR[originPlayer.userID];
                     tprData.Amount++;
                     tprData.Timestamp = timestamp;
-                    if (configData.TPR.Pay > 0) Economics?.CallHook("Withdraw", originPlayer.UserIDString, configData.TPR.Pay);
+                    if(configData.Settings.UseEconomics && Economics)
+                    {
+                        if (configData.TPR.Pay > 0) Economics?.CallHook("Withdraw", originPlayer.UserIDString, configData.TPR.Pay);
+                    }
                     changedTPR = true;
                     PrintMsgL(player, "SuccessTarget", originPlayer.displayName);
                     PrintMsgL(originPlayer, "Success", player.displayName);
@@ -2076,22 +2091,19 @@ namespace Oxide.Plugins
             {
                 var cmdSent = "";
                 double balance = 0;
-                bool eco = false;
                 try
                 {
                     cmdSent = args[0].ToLower();
                 }
                 catch {}
-                try
+                if(configData.Settings.UseEconomics && Economics)
                 {
                     balance = (double)Economics?.CallHook("Balance", player.UserIDString);
-                    eco = true;
                 }
-                catch {}
 
                 if(cmdSent == configData.Settings.BypassCMD.ToLower())
                 {
-                    if (configData.Town.Bypass > 0 && (double)balance > configData.Town.Bypass)
+                    if((configData.Settings.UseEconomics && Economics) && configData.Town.Bypass > 0 && (double)balance > configData.Town.Bypass)
                     {
                         var w = Economics?.CallHook("Withdraw", player.userID, (double)configData.Town.Bypass);
                         PrintMsgL(player, "TownTPCooldownBypass", configData.Town.Bypass);
@@ -2102,7 +2114,7 @@ namespace Oxide.Plugins
                         return;
                     }
                 }
-                else if(eco == true)
+                else if(configData.Settings.UseEconomics && Economics)
                 {
                     var remain = cooldown - (timestamp - teleportData.Timestamp);
                     PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
@@ -2115,7 +2127,6 @@ namespace Oxide.Plugins
                 }
                 else
                 {
-                    Puts("ECO FALSE");
                     var remain = cooldown - (timestamp - teleportData.Timestamp);
                     PrintMsgL(player, "TownTPCooldown", FormatTime(remain));
                     return;
@@ -2145,10 +2156,13 @@ namespace Oxide.Plugins
                 PrintMsgL(player, "TPBlockedItem", err);
                 return;
             }
-            if (configData.Town.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Town.Pay)
+            if(configData.Settings.UseEconomics && Economics)
             {
-                PrintMsgL(player, "TPMoney", configData.Town.Pay);
-                return;
+                if (configData.Town.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Town.Pay)
+                {
+                    PrintMsgL(player, "TPMoney", configData.Town.Pay);
+                    return;
+                }
             }
             var countdown = GetLower(player, configData.Town.VIPCountdowns, configData.Town.Countdown);
             TeleportTimers[player.userID] = new TeleportTimer
@@ -2180,17 +2194,23 @@ namespace Oxide.Plugins
                         TeleportTimers.Remove(player.userID);
                         return;
                     }
-                    if (configData.Town.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Town.Pay)
+                    if(configData.Settings.UseEconomics && Economics)
                     {
-                        PrintMsgL(player, "Interrupted");
-                        PrintMsgL(player, "TPMoney", configData.Home.Pay);
-                        TeleportTimers.Remove(player.userID);
-                        return;
+                        if (configData.Town.Pay > 0 && (double)(Economics?.CallHook("Balance", player.UserIDString) ?? 0) < configData.Town.Pay)
+                        {
+                            PrintMsgL(player, "Interrupted");
+                            PrintMsgL(player, "TPMoney", configData.Home.Pay);
+                            TeleportTimers.Remove(player.userID);
+                            return;
+                        }
                     }
                     Teleport(player, configData.Town.Location);
                     teleportData.Amount++;
                     teleportData.Timestamp = timestamp;
-                    if (configData.Town.Pay > 0) Economics?.CallHook("Withdraw", player.UserIDString, configData.Town.Pay);
+                    if(configData.Settings.UseEconomics && Economics)
+                    {
+                        if (configData.Town.Pay > 0) Economics?.CallHook("Withdraw", player.UserIDString, configData.Town.Pay);
+                    }
                     changedTown = true;
                     PrintMsgL(player, "TownTP");
                     if (limit > 0) PrintMsgL(player, "TownTPAmount", limit - teleportData.Amount);
