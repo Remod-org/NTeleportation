@@ -78,8 +78,8 @@ Note: work in progress on Bandit Town autogen.
 			"Countdown": 5,
 			"DailyLimit": 100,
 			"AllowCave": true,
-			...
-				"Pay": 0,
+...
+			"Pay": 0,
 			"Bypass": 0
 		},
 		"TPR": {
