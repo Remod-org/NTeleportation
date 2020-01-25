@@ -62,14 +62,13 @@ Note: work in progress on Bandit Town autogen.
 			"WorldSize": 4000,
 			"Seed": 7777
 		},
-		...
-			"VIPCooldowns": {
-				"<permission name1>": <limit1>,
-				"<permission name2>": <limit2>,
-				...
-					"<permission nameN>": <limitN>
-			}
-	...
+...
+		"VIPCooldowns": {
+			"<permission name1>": <limit1>,
+			"<permission name2>": <limit2>,
+			"<permission nameN>": <limitN>
+		}
+...
 		"Home": {
 			"HomesLimit": 10,
 			"VIPHomesLimits": {
@@ -100,7 +99,7 @@ Note: work in progress on Bandit Town autogen.
 			"OffsetTPRTarget": true,
 			"BlockTPAOnCeiling": true,
 			"CupOwnerAllowOnBuildingBlocked": true,
-			...
+...
 ``` 
 
 Multiple entries for different levels of vip can be created here.  The default and included entry is for nteleportation.vip.  Others added here will cause the plugin to register oxide permissions for them upon plugin reload.  After the permissions have been created, they can be assigned to oxide users or groups as desired.
