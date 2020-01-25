@@ -21,6 +21,7 @@ using System.Text.RegularExpressions;
 namespace Oxide.Plugins
 {
     [Info("NTeleportation", "RFC1920", "1.0.86", ResourceId = 1832)]
+	// Thanks to the original author, Nogrod.
     class NTeleportation : RustPlugin
     {
         private static readonly Vector3 Up = up;
