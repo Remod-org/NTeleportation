@@ -3,10 +3,12 @@ Local version of NTeleportation, renamed to avoid confusion with the one on umod
 
 ## WARNING!!!!
 
-If you switch to the new name, you will have to setup your permissions again and copy your old data files to the new names, e.g.
+If you switch to the new name, you will have to setup your permissions again and copy your old config and data files to the new names, e.g.
 
   cp NTeleportationAdmin.json RTeleportationAdmin.json
   ...
+
+You may be better off making the switch at the next wipe!
 
 Multiple teleportation systems for admins and players
 
