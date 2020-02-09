@@ -1,5 +1,8 @@
 # RTeleportation
 Local version of NTeleportation, renamed to avoid confusion with the one on umod.
+Multiple teleportation systems for admins and players
+
+See note below about rteleportation.home permission, which is required for basic function.  This finally allows control over who may use the basic commands.
 
 ## WARNING!!!!
 
@@ -10,10 +13,6 @@ If you switch to the new name, you will have to setup your permissions again and
 
 You may be better off making the switch at the next wipe!
 
-Multiple teleportation systems for admins and players
-
-See note below about rteleportation.home permission, which is required for basic function.  This finally allows control over who may use the basic commands.
-Note: work in progress on Bandit Town autogen.
 ## Configuration
 
 - UseFriends  - Check via Friends API that owner and player are friends
