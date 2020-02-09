@@ -1,7 +1,9 @@
-# NTeleportation
+# RTeleportation
+Local version of NTeleportation, renamed to avoid confusion with the one on umod.
+
 Multiple teleportation systems for admins and players
 
-See note below about nteleportation.home permission, which is now required for basic function.  This finally allows control over who may use the basic commands.
+See note below about rteleportation.home permission, which is required for basic function.  This finally allows control over who may use the basic commands.
 Note: work in progress on Bandit Town autogen.
 ## Configuration
 
@@ -76,7 +78,7 @@ Note: work in progress on Bandit Town autogen.
 		"Home": {
 			"HomesLimit": 10,
 			"VIPHomesLimits": {
-				"nteleportation.vip": 20
+				"rteleportation.vip": 20
 			},
 			"Cooldown": 120,
 			"Countdown": 5,
@@ -93,13 +95,13 @@ Note: work in progress on Bandit Town autogen.
 			"Countdown": 5,
 			"DailyLimit": 5,
 			"VIPDailyLimits": {
-				"nteleportation.vip": 5
+				"rteleportation.vip": 5
 			},
 			"VIPCooldowns": {
-				"nteleportation.vip": 5
+				"rteleportation.vip": 5
 			},
 			"VIPCountdowns": {
-				"nteleportation.vip": 5
+				"rteleportation.vip": 5
 			},
 			"RequestDuration": 30,
 			"OffsetTPRTarget": true,
@@ -107,7 +109,7 @@ Note: work in progress on Bandit Town autogen.
 			"CupOwnerAllowOnBuildingBlocked": true,
 ``` 
 
-Multiple entries for different levels of vip can be created here.  The default and included entry is for nteleportation.vip.  Others added here will cause the plugin to register oxide permissions for them upon plugin reload.  After the permissions have been created, they can be assigned to oxide users or groups as desired.
+Multiple entries for different levels of vip can be created here.  The default and included entry is for rteleportation.vip.  Others added here will cause the plugin to register oxide permissions for them upon plugin reload.  After the permissions have been created, they can be assigned to oxide users or groups as desired.
 
 If Pay is set for /home, /tpr, or /town, and Economics or ServerRewards is available, using these commands will withdraw the configured amount from their balance.
 
@@ -133,29 +135,29 @@ StrictFoundationCheck: Default false.  If set to true, perform an additional che
 DefaultMonumentSize: This is required if InterruptTPOnMonument is set to true.  Many monuments do not present their size when queried - at least how we are currently doing it.  For those that do not, this will be the default distance required for using /home, etc.
 ## Permissions
 
-	- nteleportation.home - /home, /sethome, /removehome
-	- nteleportation.deletehome - /home delete & /deletehome  
-	- nteleportation.homehomes - /home homes & /homehomes  
-	- nteleportation.importhomes - teleport.importhomes  
-	- nteleportation.radiushome - /home radius & /radiushome  
-	- nteleportation.tp - /tp  
-	- nteleportation.tpb - /tpb  
-	- nteleportation.tpr - /tpr
-	- nteleportation.tpconsole - teleport.topos & teleport.toplayer  
-	- nteleportation.tphome - /home tp & /tphome  
-	- nteleportation.tptown - /town  
-	- nteleportation.tpoutpost - /outpost  
-	- nteleportation.tpbandit - /bandit
-	- nteleportation.tpn - /tpn  
-	- nteleportation.tpl - /tpl  
-	- nteleportation.tpremove - /tpremove  
-	- nteleportation.tpsave - /tpsave  
-	- nteleportation.wipehomes - /wipehomes  
-	- nteleportation.crafthome - allow craft during home tp  
-	- nteleportation.crafttown - allow craft during town tp  
-	- nteleportation.craftoutpost - allow craft during outpost tp  
-	- nteleportation.craftbandit - allow craft during bandit tp  
-	- nteleportation.crafttpr - allow craft during tpr tp  
+	- rteleportation.home - /home, /sethome, /removehome
+	- rteleportation.deletehome - /home delete & /deletehome  
+	- rteleportation.homehomes - /home homes & /homehomes  
+	- rteleportation.importhomes - teleport.importhomes  
+	- rteleportation.radiushome - /home radius & /radiushome  
+	- rteleportation.tp - /tp  
+	- rteleportation.tpb - /tpb  
+	- rteleportation.tpr - /tpr
+	- rteleportation.tpconsole - teleport.topos & teleport.toplayer  
+	- rteleportation.tphome - /home tp & /tphome  
+	- rteleportation.tptown - /town  
+	- rteleportation.tpoutpost - /outpost  
+	- rteleportation.tpbandit - /bandit
+	- rteleportation.tpn - /tpn  
+	- rteleportation.tpl - /tpl  
+	- rteleportation.tpremove - /tpremove  
+	- rteleportation.tpsave - /tpsave  
+	- rteleportation.wipehomes - /wipehomes  
+	- rteleportation.crafthome - allow craft during home tp  
+	- rteleportation.crafttown - allow craft during town tp  
+	- rteleportation.craftoutpost - allow craft during outpost tp  
+	- rteleportation.craftbandit - allow craft during bandit tp  
+	- rteleportation.crafttpr - allow craft during tpr tp  
 
 ## Commands
 
@@ -214,7 +216,7 @@ DefaultMonumentSize: This is required if InterruptTPOnMonument is set to true.  
 	- Nothing at this time
 
 ## Tutorials
-	[SRT Bull NTeleportation Tutorial](https://www.youtube.com/watch?v=yXId_jCnup8)
+	[SRT Bull RTeleportation Tutorial](https://www.youtube.com/watch?v=yXId_jCnup8)
 ## Credits
 
 	- **Nogrod**, the original author of this plugin
