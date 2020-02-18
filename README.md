@@ -1,6 +1,11 @@
 # RTeleportation
 Local version of NTeleportation, renamed to avoid confusion with the one on umod.
+
 Multiple teleportation systems for admins and players
+
+[Download](https://code.remod.org/RTeleportation.cs)
+
+Works with: Clans, Economics, ServerRewards, Friends, RustIO;
 
 See note below about rteleportation.home permission, which is required for basic function.  This finally allows control over who may use the basic commands.
 
