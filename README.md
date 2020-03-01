@@ -3,6 +3,8 @@ Local version of NTeleportation, renamed to avoid confusion with the one on umod
 
 Multiple teleportation systems for admins and players
 
+Latest version: 1.0.88
+
 [Download](https://code.remod.org/RTeleportation.cs)
 
 Works with: Clans, Economics, ServerRewards, Friends, RustIO;
