@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("RTeleportation", "RFC1920", "1.0.88", ResourceId = 1832)]
+    [Info("RTeleportation", "RFC1920", "1.0.89", ResourceId = 1832)]
     // Thanks to the original author, Nogrod.
     class RTeleportation : RustPlugin
     {
@@ -1501,46 +1501,6 @@ namespace Oxide.Plugins
         void OnServerShutdown() => OnServerSave();
 
         void Unload() => OnServerSave();
-
-        void OnPluginLoaded(Plugin plugin)
-        {
-            if(plugin.Name == "Economics")
-            {
-                Economics = plugin;
-            }
-            if(plugin.Name == "ServerRewards")
-            {
-                ServerRewards = plugin;
-            }
-            if(plugin.Name == "Friends")
-            {
-                Friends = plugin;
-            }
-            if(plugin.Name == "Clans")
-            {
-                Clans = plugin;
-            }
-        }
-
-        void OnPluginUnloaded(Plugin plugin)
-        {
-            if(plugin.Name == "Economics")
-            {
-                Economics = null;
-            }
-            if(plugin.Name == "ServerRewards")
-            {
-                ServerRewards = null;
-            }
-            if(plugin.Name == "Friends")
-            {
-                Friends = null;
-            }
-            if(plugin.Name == "Clans")
-            {
-                Clans = null;
-            }
-        }
 
         void OnEntityTakeDamage(BaseCombatEntity entity, HitInfo hitinfo)
         {
@@ -3322,8 +3282,10 @@ namespace Oxide.Plugins
                         PrintMsgL(player, err);
                         if(err == "TPHostile")
                         {
-                            var pc = player as BaseCombatEntity;
-                            string pt = ((int)Math.Abs(pc.unHostileTime - Time.realtimeSinceStartup) / 60).ToString();
+                            float unHostileTime = (float) player.State.unHostileTimestamp;
+                            float currentTime = (float) Network.TimeEx.currentTimestamp;
+                            string pt = ((int)Math.Abs(unHostileTime - currentTime) / 60).ToString();
+                            if((unHostileTime - currentTime) < 60) pt = "<1";
                             PrintMsgL(player, "HostileTimer", pt);
                         }
                         return;
@@ -3358,8 +3320,10 @@ namespace Oxide.Plugins
                         PrintMsgL(player, err);
                         if(err == "TPHostile")
                         {
-                            var pc = player as BaseCombatEntity;
-                            string pt = ((int)Math.Abs(pc.unHostileTime - Time.realtimeSinceStartup) / 60).ToString();
+                            float unHostileTime = (float) player.State.unHostileTimestamp;
+                            float currentTime = (float) Network.TimeEx.currentTimestamp;
+                            string pt = ((int)Math.Abs(unHostileTime - currentTime) / 60).ToString();
+                            if((unHostileTime - currentTime) < 60) pt = "<1";
                             PrintMsgL(player, "HostileTimer", pt);
                         }
                         return;
