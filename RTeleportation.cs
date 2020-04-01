@@ -20,7 +20,7 @@ using System.Text.RegularExpressions;
 
 namespace Oxide.Plugins
 {
-    [Info("RTeleportation", "RFC1920", "1.0.89", ResourceId = 1832)]
+    [Info("RTeleportation", "RFC1920", "1.0.90", ResourceId = 1832)]
     // Thanks to the original author, Nogrod.
     class RTeleportation : RustPlugin
     {
@@ -1478,9 +1478,8 @@ namespace Oxide.Plugins
                 Puts("Rust was upgraded or map changed - clearing homes and town!");
                 Home.Clear();
                 changedHome = true;
-                configData.Town.Location    = default(Vector3);
-                configData.Outpost.Location = default(Vector3);
-                configData.Bandit.Location  = default(Vector3);
+                configData.Town.Location = default(Vector3);
+                FindMonuments();
             }
             else
             {
