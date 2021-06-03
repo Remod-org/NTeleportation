@@ -1,26 +1,25 @@
 //#define DEBUG
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Globalization;
-using System.Linq;
-using Facepunch;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Linq;
-using Oxide.Core;
-using Oxide.Core.Configuration;
-using Oxide.Core.Plugins;
-using Oxide.Game.Rust;
-using Rust;
 using UnityEngine;
 using static UnityEngine.Vector3;
 using System.Text.RegularExpressions;
+using Oxide.Core.Configuration;
+using System.Collections.Generic;
+using Oxide.Core.Plugins;
+using Oxide.Core;
+using Newtonsoft.Json;
+using System.Collections;
+using Newtonsoft.Json.Converters;
+using Rust;
+using System.Linq;
+using Oxide.Game.Rust;
+using System.Globalization;
+using Facepunch;
+using Newtonsoft.Json.Linq;
 
 namespace Oxide.Plugins
 {
-    [Info("RTeleportation", "RFC1920", "1.0.90", ResourceId = 1832)]
+    [Info("RTeleportation", "RFC1920", "1.0.91", ResourceId = 1832)]
     // Thanks to the original author, Nogrod.
     class RTeleportation : RustPlugin
     {
@@ -384,9 +383,10 @@ namespace Oxide.Plugins
             }, true);
         }
 
-        private enum checkmode {
+        private enum checkmode
+        {
             home, tpr, tpa, town
-        };
+        }
 
         private void Init()
         {
@@ -1653,13 +1653,14 @@ namespace Oxide.Plugins
             return random;
         }
         // Modified from MonumentFinder.cs by PsychoTea
-        bool setextra = false;
         void FindMonuments()
         {
+            bool setextra = false;
             Vector3 extents = Vector3.zero;
             float realWidth = 0f;
             string name = null;
-            foreach(MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
+            //foreach(MonumentInfo monument in UnityEngine.Object.FindObjectsOfType<MonumentInfo>())
+            foreach(MonumentInfo monument in BaseNetworkable.serverEntities.OfType<MonumentInfo>())
             {
                 if(monument.name.Contains("power_sub")) continue;
                 realWidth = 0f;
@@ -4473,7 +4474,7 @@ namespace Oxide.Plugins
                 BasePlayer player = BasePlayer.FindByID(playerid);
                 if(player.currentTeam != (long)0)
                 {
-                    RelationshipManager.PlayerTeam playerTeam = RelationshipManager.Instance.FindTeam(player.currentTeam);
+                    RelationshipManager.PlayerTeam playerTeam = RelationshipManager.ServerInstance.FindTeam(player.currentTeam);
                     if(playerTeam == null) return false;
                     if(playerTeam.members.Contains(ownerid))
                     {
